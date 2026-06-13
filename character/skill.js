@@ -65,7 +65,6 @@ const skills = {
 				},
 				sub: true,
 				sourceSkill: "rixun",
-				_priority: 0,
 			},
 			sha_bonus: {
 				skill_id: "rixun_sha_bonus",
@@ -82,7 +81,6 @@ const skills = {
 				},
 				sub: true,
 				sourceSkill: "rixun",
-				_priority: 0,
 			},
 		},
 		enable: "phaseUse",
@@ -163,7 +161,6 @@ const skills = {
 				gain: 1,
 			},
 		},
-		_priority: 0,
 	},
 	moyu: {
 		skill_id: "moyu",
@@ -185,7 +182,6 @@ const skills = {
 		ai: {
 			threaten: 1.2,
 		},
-		_priority: 0,
 	},
 	yuyu: {
 		skill_id: "yuyu",
@@ -225,7 +221,6 @@ const skills = {
 				},
 				sub: true,
 				sourceSkill: "yuyu",
-				_priority: 0,
 			},
 			clean: {
 				skill_id: "yuyu_clean",
@@ -243,7 +238,6 @@ const skills = {
 				},
 				sub: true,
 				sourceSkill: "yuyu",
-				_priority: 0,
 			},
 		},
 		trigger: {
@@ -278,7 +272,6 @@ const skills = {
 				},
 			},
 		},
-		_priority: 0,
 	},
 	tuhao: {
 		skill_id: "tuhao",
@@ -294,16 +287,14 @@ const skills = {
 				},
 				content: async function (event, trigger, player) {
 					trigger.player.addTempSkill("tuhao_request", { player: "phaseAfter" });
+					trigger.player.addTempSkill("tuhao_dtrack", { player: "phaseAfter" });
+					trigger.player.addTempSkill("tuhao_rtrack", { player: "phaseAfter" });
+					trigger.player.addTempSkill("tuhao_settle", { player: "phaseAfter" });
 
 					// 初始化 storage
 					trigger.player.storage.tuhao_xiaoch = null;
 					trigger.player.storage.tuhao_dealt = false;
 					trigger.player.storage.tuhao_recovered = false;
-
-					// 注册附属技能，监听整个出牌阶段
-					trigger.player.addSkill("tuhao_settle");
-					trigger.player.addSkill("tuhao_dtrack");
-					trigger.player.addSkill("tuhao_rtrack");
 				},
 			},
 			request: {
@@ -314,24 +305,18 @@ const skills = {
 					return false;
 				},
 				selectCard: 0,
-				mark: true,
-				intro: {
-					content: "可请求小澈代为使用基本牌",
-				},
 				filter: function (event, player) {
 					var xiaoch = game.findPlayer(function (p) {
 						return p.hasSkill("tuhao");
 					});
 					if (!xiaoch || !xiaoch.isAlive()) return false;
-					if (player.isDamaged()) return true;
-					if (
+					var canUseSha =
+						player.getCardUsable("sha") > 0 &&
 						game.hasPlayer(function (t) {
 							return t != player && player.inRange(t);
-						})
-					) {
-						return true;
-					}
-					return false;
+						});
+					var canUseTao = player.isDamaged();
+					return canUseSha || canUseTao;
 				},
 				content: async function (event) {
 					var player = event.player;
@@ -431,80 +416,52 @@ const skills = {
 						return;
 					}
 
-					// 小澈决定是否同意
-					var boolResult = await xiaoch
-						.chooseBool(
-							"是否代" +
-								get.translation(player) +
-								"使用一张【" +
-								get.translation(selectedName) +
-								"】？",
-						)
-						.set("ai", function () {
-							var att = get.attitude(xiaoch, player);
-							// 敌人直接拒绝
-							if (att <= 0) return false;
-
-							// 手牌太少，自保优先
-							if (xiaoch.countCards("h") <= 2) return false;
-
-							var handCount = xiaoch.countCards("h", function (c) {
-								return c.name == selectedName;
-							});
-
-							// 桃：队友濒死必须救，中等血量看情况
-							if (selectedName == "tao") {
-								if (player.hp <= 1 && handCount > 1) return true;
-								if (player.hp <= 1 && xiaoch.countCards("h") >= 4) return true;
-								if (handCount >= 2) return true;
-								return false;
-							}
-
-							// 杀：有明确敌人目标时帮忙
-							if (selectedName == "sha") {
-								if (target && get.attitude(xiaoch, target) < 0) {
-									return handCount >= 1;
-								}
-								return false;
-							}
-
-							// 酒：队友要蓄爆，有多余的才给
-							if (selectedName == "jiu") {
-								return handCount >= 2;
-							}
-
-							return false;
-						})
-						.forResult();
-
-					if (!boolResult.bool) {
-						xiaoch.popup("拒绝");
-						game.log(xiaoch, "拒绝了【土豪】请求");
-						return;
-					}
-
-					game.log(xiaoch, "同意了【土豪】请求");
-
-					// 小澈选牌
+					// 小澈选牌或拒绝
 					var cardResult = await xiaoch
 						.chooseCard(
 							"h",
 							function (card) {
 								return card.name == selectedName;
 							},
-							"选择一张【" + get.translation(selectedName) + "】",
+							"【土豪】是否代" +
+								get.translation(player) +
+								"使用【" +
+								+get.translation(selectedName) +
+								"】（选择一张牌同意，点取消拒绝）",
 						)
 						.set("ai", function (card) {
-							// 优先出价值低的
-							return -get.value(card);
+							var att = get.attitude(xiaoch, player);
+							if (att <= 0) return -1;
+							if (xiaoch.countCards("h") <= 2) return -1;
+
+							var handCount = xiaoch.countCards("h", function (c) {
+								return c.name == selectedName;
+							});
+
+							if (selectedName == "tao") {
+								if (player.hp <= 1 && handCount > 1) return 10;
+								if (player.hp <= 1 && xiaoch.countCards("h") >= 4) return 10;
+								if (handCount >= 2) return 5;
+								return -1;
+							}
+							if (selectedName == "sha") {
+								if (target && get.attitude(xiaoch, target) < 0 && handCount >= 1) return 5;
+								return -1;
+							}
+							if (selectedName == "jiu") {
+								return handCount >= 2 ? 5 : -1;
+							}
+							return -1;
 						})
 						.forResult();
 
-					if (!cardResult.bool || !cardResult.cards) return;
+					if (!cardResult.bool || !cardResult.cards) {
+						xiaoch.popup("拒绝");
+						game.log(xiaoch, "拒绝了【土豪】请求");
+						return;
+					}
 
 					player.storage.tuhao_xiaoch = xiaoch;
-					player.storage.tuhao_dealt = false;
-					player.storage.tuhao_recovered = false;
 					await player.addSkill("tuhao_settle");
 
 					var givenCard = cardResult.cards[0];
@@ -512,13 +469,7 @@ const skills = {
 					await player.useCard(givenCard, target);
 				},
 				ai: {
-					order: function (item, player) {
-						var hasTarget = game.hasPlayer(function (t) {
-							return t != player && player.inRange(t);
-						});
-						if (hasTarget && !player.countCards("h", { name: "sha" })) return 9;
-						return 2;
-					},
+					order: 2,
 					result: {
 						player: function (player) {
 							var xiaoch = game.findPlayer(function (p) {
@@ -526,19 +477,38 @@ const skills = {
 							});
 							if (!xiaoch || !xiaoch.isAlive()) return -2;
 							if (get.attitude(player, xiaoch) <= 0) return -2;
-							if (xiaoch.countCards("h") < 1) return -2;
-							var hasTarget = game.hasPlayer(function (t) {
-								return t != player && player.inRange(t);
+
+							var xiaochHand = xiaoch.countCards("h"); // 总手牌数，公开信息
+							if (xiaochHand <= 2) return -2; // 牌太少，大概率拒绝
+
+							var hasGoodTarget = game.hasPlayer(function (t) {
+								return t != player && player.inRange(t) && get.attitude(player, t) < 0;
 							});
-							if (hasTarget && !player.countCards("h", { name: "sha" })) return 2;
-							if (
-								hasTarget &&
-								player.countCards("h", { name: "sha" }) &&
-								!player.countCards("h", { name: "jiu" })
-							)
-								return 1;
-							if (player.isDamaged() && !player.countCards("h", { name: "tao" }) && player.hp <= 1)
-								return 0.5;
+
+							// 用公开手牌数估算小澈有多余牌的概率
+							// 牌越多，越可能有富余的基本牌愿意给
+							var generous = xiaochHand >= 5;
+
+							// === 求杀 ===
+							if (hasGoodTarget && !player.countCards("h", { name: "sha" })) {
+								// 杀牌较常见，手牌多时小澈大概率有
+								return generous ? 3 : xiaochHand >= 4 ? 2 : -2;
+							}
+
+							// === 求酒 ===
+							if (hasGoodTarget && player.countCards("h", { name: "sha" })) {
+								// 酒牌稀少，需要小澈牌很多才值得请求
+								if (xiaochHand >= 6) return 1.5;
+								return -2;
+							}
+
+							// === 非濒死回血 ===
+							if (player.isDamaged()) {
+								// 桃很珍贵，小澈牌非常充裕时才值得
+								if (xiaochHand >= 6) return 0.5;
+								return -2;
+							}
+
 							return -2;
 						},
 					},
@@ -559,9 +529,14 @@ const skills = {
 						await xiaoch.draw();
 						game.log("【土豪】", player, "于此阶段造成伤害，", xiaoch, "摸一张牌");
 					}
-					if (player.storage.tuhao_recovered) {
-						game.log("【土豪】", player, "于此阶段回复体力，", xiaoch, "弃置一张牌");
-						await xiaoch.chooseToDiscard("h", 1, true, "请选择弃置一张牌");
+					if (player.storage.tuhao_recovered && player.getEquip(2) !== null) {
+						game.log("【土豪】", player, "于此阶段回复体力，", xiaoch, "获得", player, "的防具");
+						var card = player.getEquip(2);
+						if (xiaoch.getEquip(2)) {
+							await xiaoch.discard(xiaoch.getEquip(2));
+						}
+						player.$give(card, xiaoch);
+						await xiaoch.equip(card);
 					}
 					player.storage.tuhao_xiaoch = null;
 					player.storage.tuhao_dealt = false;
@@ -571,7 +546,7 @@ const skills = {
 			dtrack: {
 				skill_id: "tuhao_dtrack",
 				charlotte: true,
-				trigger: { source: "damage" },
+				trigger: { source: "damageAfter" },
 				forced: true,
 				popup: false,
 				silent: true,
@@ -582,7 +557,7 @@ const skills = {
 			rtrack: {
 				skill_id: "tuhao_rtrack",
 				charlotte: true,
-				trigger: { player: "recover" },
+				trigger: { player: "recoverAfter" },
 				forced: true,
 				popup: false,
 				silent: true,
@@ -607,7 +582,8 @@ const skills = {
 		trigger: {
 			player: "damageBegin1",
 		},
-		forced: false,
+		forced: true, // 实际上并非锁定技，只是让选择减少一步
+		popup: false,
 		filter: function (event, player) {
 			return event.card && player.countCards("h") > 0;
 		},
@@ -621,14 +597,34 @@ const skills = {
 			if (!trigger.card) return;
 
 			// 获取造成伤害的牌的类型
-			var damageCardType = get.type(trigger.card, "trick");
-			var typeText = get.translation(damageCardType);
+			var baseType = get.type(trigger.card);
+			var isDelayed = false;
+			if (baseType === "trick") {
+				var info = lib.card[trigger.card.name];
+				isDelayed = info && info.type === "delay";
+			}
+
+			// 类型显示名
+			var typeText = (function () {
+				if (baseType === "basic") return "基本";
+				if (baseType === "trick") return isDelayed ? "延时锦囊" : "普通锦囊";
+				if (baseType === "equip") return "装备";
+				return get.translation(baseType);
+			})();
+
+			// 过滤函数：同大类 + 同子类（普通/延时）
 			var filterFunc = function (card) {
-				return get.type(card, "trick") == damageCardType;
+				if (get.type(card) !== baseType) return false;
+				if (baseType === "trick") {
+					var cardInfo = lib.card[card.name];
+					var cardIsDelayed = cardInfo && cardInfo.type === "delay";
+					return cardIsDelayed === isDelayed;
+				}
+				return true;
 			};
 
-			var hasCard = xiaoch.countCards("h", filterFunc) > 0;
-			if (!hasCard) {
+			// ---------- 小澈没有对应类型牌 → 弹提示 ----------
+			if (!xiaoch.countCards("h", filterFunc)) {
 				await xiaoch
 					.chooseButton(["提示", [["您没有" + typeText + "类型的牌"], "tdnodes"]])
 					.set("ai", function () {
@@ -640,9 +636,10 @@ const skills = {
 			var cardResult = await xiaoch
 				.chooseCard("h", filterFunc, "您可以弃置一张" + typeText + "牌，令此伤害-1")
 				.set("ai", function (card) {
-					if (xiaoch.hp <= event.num) return 100 - get.value(card);
-					if (event.num >= 2) return 80 - get.value(card);
-					return 30 - get.value(card);
+					if (xiaoch === player && xiaoch.hp <= event.num) return 150 - get.value(card);
+					if (event.num >= 2) return 90 - get.value(card);
+					if (get.attitude(xiaoch, player) > 0) return 50 - get.value(card);
+					return -1;
 				})
 				.forResult();
 
@@ -661,13 +658,12 @@ const skills = {
 				},
 			},
 		},
-		_priority: 0,
 	},
 	guangming: {
 		skill_id: "guangming",
 		forced: true,
 		locked: true,
-		group: "guangming_baiyin",
+		group: ["guangming_baiyin", "guangming_recover"],
 		init: function (player, skill) {
 			player.addExtraEquip(skill, "baiyin", true, function (player2) {
 				return player2.hasEmptySlot(2) && lib.card.baiyin;
@@ -676,16 +672,33 @@ const skills = {
 		onremove: function (player, skill) {
 			player.removeExtraEquip(skill);
 		},
-		_priority: 0,
-	},
-	guangming_baiyin: {
-		equipSkill: true,
-		noHidden: true,
-		inherit: "baiyin_skill",
-		sourceSkill: "guangming",
-		filter: function (event, player) {
-			if (!player.hasEmptySlot(2)) return false;
-			return true;
+		subSkill: {
+			baiyin: {
+				skill_id: "guangming_baiyin",
+				equipSkill: true,
+				noHidden: true,
+				inherit: "baiyin_skill",
+				sourceSkill: "guangming",
+				filter: function (event, player) {
+					if (!player.hasEmptySlot(2)) return false;
+					return true;
+				},
+			},
+			recover: {
+				skill_id: "guangming_recover",
+				trigger: { player: "equipAfter" },
+				forced: true,
+				popup: false,
+				filter: function (event, player) {
+					if (!event.card || get.subtype(event.card) !== "equip2") return false;
+					if (!player.hasSkill("guangming")) return false;
+					return player.isDamaged();
+				},
+				content: async function (event, trigger, player) {
+					await player.recover();
+					game.log(player, "【光明】白银狮子被替换，回复1点体力");
+				},
+			},
 		},
 	},
 };
