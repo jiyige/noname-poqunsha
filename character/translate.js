@@ -18,6 +18,13 @@ const translates = {
 	ziyi_info: "当你受到伤害时，你可以弃置一张与伤害牌类型一致的牌，令此伤害-1。",
 	guangming: "光明",
 	guangming_info: "若你装备区没有防具牌，视为装备了白银狮子。",
+
+	poqun_xiaoqi: "小奇",
+	maihao: "买号",
+	maihao_info:
+		"每轮限一次，一名角色阵亡结算后，你可以保留【买号】将武将将面替换成该角色武将，然后弃置区域内的全部牌，并摸X张牌(X为你替换后的体力上限）",
+	shenyin: "神隐",
+	shenyin_info: "锁定技，你不能成为兵粮寸断的目标，其他角色计算与你的距离+1。",
 };
 
 export default translates;

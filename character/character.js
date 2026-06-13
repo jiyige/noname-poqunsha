@@ -17,6 +17,15 @@ const characters = {
 		skills: ["tuhao", "ziyi", "guangming"],
 		img: "extension/破群杀/image/xiaoche.jpg",
 	},
+	poqun_xiaoqi: {
+		sex: "male",
+		group: "qun",
+		hp: 4,
+		maxHp: 4,
+		hujia: 0,
+		skills: ["maihao", "shenyin"],
+		img: "extension/破群杀/image/xiaoqi.jpg",
+	},
 };
 
 export default characters;

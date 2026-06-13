@@ -701,6 +701,91 @@ const skills = {
 			},
 		},
 	},
+	maihao: {
+		skill_id: "maihao",
+		trigger: { global: "dieAfter" },
+		forced: true, // 实际上是非锁定技，只是去除系统询问
+		popup: false,
+		filter: function (event, player) {
+			var round = game.roundNumber;
+			return player.storage.maihao !== round && event.player !== player;
+		},
+		content: async function (event, trigger, player) {
+			var result = await player
+				.chooseBool("是否发动【买号】，将武将替换为" + get.translation(trigger.player) + "？")
+				.set("ai", function () {
+					var dead = trigger.player;
+					var oldName = player.name1 || player.name;
+					var newName = dead.name;
+					var oldRank = get.rank(oldName, true);
+					var newRank = get.rank(newName, true);
+					var rankDiff = newRank - oldRank;
+					var hpDiff = dead.maxHp - player.maxHp;
+					var discardCount = player.countCards("hej");
+					var drawCount = dead.maxHp;
+					var netCards = drawCount - discardCount;
+					var hpRatio = player.hp / player.maxHp;
+					var score = 0;
+					score += rankDiff * 10;
+					score += hpDiff * 4;
+					score += netCards * 2;
+					if (hpRatio <= 0.3) score += 15;
+					if (player.hp <= 1) score += 20;
+					if (player.hp <= 0) return true;
+					if (rankDiff <= 0 && netCards <= 0) return false;
+					if (rankDiff > 0) return score > 5;
+					return score > 10;
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			// 保存需要保留的数据
+			var maihaoStorage = player.storage.maihao;
+			var keepName = player.name;
+
+			// 替换武将
+			player.reinit(player.name, trigger.player.name);
+
+			// 改回名字
+			player.name = keepName;
+			if (player.name1) player.name1 = keepName;
+			player.node.name.innerHTML = get.translation(keepName);
+
+			// 补回保留的技能
+			player.addSkill("maihao");
+			player.storage.maihao = maihaoStorage;
+
+			// 弃置区域内的全部牌
+			var cards = player.getCards("hej");
+			if (cards.length) {
+				await player.discard(cards);
+			}
+
+			// 摸X张牌
+			await player.draw(player.maxHp);
+
+			game.log(
+				player,
+				"发动【买号】，替换为",
+				trigger.player,
+				"，弃置所有牌并摸" + player.maxHp + "张牌",
+			);
+		},
+	},
+	shenyin: {
+		skill_id: "shenyin",
+		forced: true,
+		locked: true,
+		mod: {
+			targetEnabled: function (card, player, target) {
+				if (card.name === "bingliang") return false;
+			},
+			globalTo: function (from, to, distance) {
+				return distance + 1;
+			},
+		},
+	},
 };
 
 export default skills;
