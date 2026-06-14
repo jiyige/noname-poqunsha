@@ -35,6 +35,15 @@ const characters = {
 		skills: ["ruoji", "jiche"],
 		img: "extension/破群杀/image/lingxin.jpg",
 	},
+	poqun_dadi: {
+		sex: "male",
+		group: "shu",
+		hp: 6,
+		maxHp: 6,
+		hujia: 0,
+		skills: ["bianlu", "daifa"],
+		img: "extension/破群杀/image/dadi.jpg",
+	},
 };
 
 export default characters;

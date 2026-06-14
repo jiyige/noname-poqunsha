@@ -877,6 +877,137 @@ const skills = {
 			}
 		},
 	},
+	bianlu: {
+		skill_id: "bianlu",
+		trigger: { player: "phaseUseEnd" },
+		forced: true,
+		group: ["bianlu_reset", "bianlu_dtrack"],
+		filter: function (event, player) {
+			return !player.storage.bianlu_damaged && player.maxHp > 1;
+		},
+		content: async function (event, trigger, player) {
+			player.maxHp--;
+			player.update();
+			game.log(player, "【辩戮】减1点体力上限");
+			var nanman = game.createCard("nanman", "none", 0);
+			await player.useCard(
+				nanman,
+				game.filterPlayer(function (current) {
+					return current !== player;
+				}),
+			);
+		},
+		subSkill: {
+			reset: {
+				skill_id: "bianlu_reset",
+				trigger: { player: "phaseBegin" },
+				forced: true,
+				popup: false,
+				silent: true,
+				firstDo: true,
+				content: function (event, trigger, player) {
+					player.storage.bianlu_damaged = false;
+				},
+			},
+			dtrack: {
+				skill_id: "bianlu_dtrack",
+				trigger: { source: "damageAfter" },
+				forced: true,
+				popup: false,
+				silent: true,
+				filter: function (event, player) {
+					return _status.currentPhase === player;
+				},
+				content: function (event, trigger, player) {
+					player.storage.bianlu_damaged = true;
+				},
+			},
+		},
+	},
+	daifa: {
+		skill_id: "daifa",
+		trigger: { global: "phaseEnd" },
+		forced: false,
+		group: ["daifa_dtrack", "daifa_reset"],
+		filter: function (event, player) {
+			if (event.player === player) return false;
+			if (event.player.isDead()) return false;
+			if (!event.player.storage.daifa_damaged_this_turn) return false;
+			var round = game.roundNumber;
+			if (player.storage.daifa_round !== round) {
+				player.storage.daifa_round = round;
+				player.storage.daifa_count = 0;
+			}
+			var maxUse = player.maxHp - player.hp;
+			if (maxUse <= 0) return false;
+			if (player.storage.daifa_count >= maxUse) return false;
+			return player.countCards("h") > 0;
+		},
+		content: async function (event, trigger, player) {
+			var target = trigger.player;
+			var result = await player
+				.chooseCard(
+					"h",
+					"【代伐】弃置一张手牌，视为对" +
+						get.translation(target) +
+						"使用【决斗】（选牌同意，取消拒绝）",
+				)
+				.set("ai", function (card) {
+					if (get.attitude(player, target) >= 0) return -1;
+					var effect = get.effect(target, { name: "juedou" }, player, player);
+					if (effect <= 0) return -1;
+					return effect * 2 - get.value(card);
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			await player.discard(result.cards[0]);
+
+			var round = game.roundNumber;
+			if (player.storage.daifa_round !== round) {
+				player.storage.daifa_round = round;
+				player.storage.daifa_count = 0;
+			}
+			player.storage.daifa_count++;
+			console.log("代伐使用次数+1");
+
+			var juedou = game.createCard("juedou", "none", 0);
+			console.log("创建一张决斗", juedou);
+			await player.useCard(juedou, [target]);
+
+			game.log(player, "发动【代伐】，弃置一张手牌，对", target, "使用【决斗】");
+		},
+		subSkill: {
+			dtrack: {
+				skill_id: "daifa_dtrack",
+				trigger: { global: "damageSource" },
+				forced: true,
+				popup: false,
+				silent: true,
+				filter: function (event, player) {
+					console.log("当前角色", _status.currentPhase);
+					console.log("伤害来源", event.source);
+					return _status.currentPhase === event.source;
+				},
+				content: function (event, trigger, player) {
+					console.log("当前角色造成了伤害");
+					trigger.source.storage.daifa_damaged_this_turn = true;
+				},
+			},
+			reset: {
+				skill_id: "daifa_reset",
+				trigger: { global: "turnBegin" },
+				forced: true,
+				popup: false,
+				silent: true,
+				content: function (event, trigger, player) {
+					console.log("当前角色重置", trigger.player);
+					trigger.player.storage.daifa_damaged_this_turn = false;
+				},
+			},
+		},
+	},
 };
 
 export default skills;

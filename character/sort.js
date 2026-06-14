@@ -1,6 +1,6 @@
 // 拓展包
 const characterSort = {
-	poqun_biaozhun: ["poqun_jiyi", "poqun_xiaoche", "poqun_xiaoqi", "poqun_lingxin"],
+	poqun_biaozhun: ["poqun_jiyi", "poqun_xiaoche", "poqun_xiaoqi", "poqun_lingxin", "poqun_dadi"],
 };
 
 const characterSortTranslate = {
