@@ -786,6 +786,97 @@ const skills = {
 			},
 		},
 	},
+	ruoji: {
+		skill_id: "ruoji",
+		forced: true,
+		locked: true,
+		mod: {
+			cardname: function (card, player) {
+				if (card.name === "sha") {
+					if (get.color(card) === "red") return "shan";
+					if (get.color(card) === "black") return "wuxie";
+				}
+			},
+		},
+	},
+	jiche: {
+		skill_id: "jiche",
+		trigger: { global: "useCardToPlayer" },
+		forced: true,
+		popup: false,
+		filter: function (event, player) {
+			if (event.target === player) return false;
+			if (event.player === player) return false;
+			if (event.card.name !== "sha" && get.type(event.card) !== "trick") return false;
+			// 唯一目标判断
+			var useEvent = event.getParent();
+			if (!useEvent || !useEvent.targets) return false;
+			if (useEvent.targets.length !== 1) return false;
+			// 没手牌不能弃
+			if (!player.countCards("h")) return false;
+			// 借刀杀人需要自己有武器
+			if (event.card.name === "jiedao" && !player.getEquip(1)) return false;
+			return true;
+		},
+		content: async function (event, trigger, player) {
+			var oldTarget = trigger.target;
+			var card = trigger.card;
+
+			// 预计算效果值
+			var effectOnTarget = get.effect(oldTarget, card, trigger.player, player);
+			var effectOnSelf = get.effect(player, card, trigger.player, player);
+
+			var result = await player
+				.chooseCard(
+					"h",
+					"【鸡车】弃置一张手牌，代替" +
+						get.translation(oldTarget) +
+						"成为" +
+						get.translation(card) +
+						"的目标",
+				)
+				.set("ai", function (hCard) {
+					// 不保护敌人
+					if (get.attitude(player, oldTarget) <= 0) return -1;
+
+					// 对目标有益的牌不挡（无中生有等）
+					if (effectOnTarget >= 0) return -1;
+
+					// 自己扛不住不挡（会死）
+					if (-effectOnSelf >= player.hp) return -1;
+
+					// 颜色匹配摸牌
+					var colorMatch = get.color(hCard) === get.color(card);
+					var score = colorMatch ? 8 : 4;
+
+					// 目标越危险越值得挡
+					if (oldTarget.hp <= 1) score += 3;
+
+					return score - get.value(hCard);
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			await player.discard(result.cards[0]);
+
+			// 替换目标
+			trigger.target = player;
+			var useEvent = trigger.getParent();
+			if (useEvent && useEvent.targets) {
+				var idx = useEvent.targets.indexOf(oldTarget);
+				if (idx !== -1) useEvent.targets[idx] = player;
+			}
+
+			game.log(player, "发动【鸡车】，代替", oldTarget, "成为", card, "的目标");
+
+			// 颜色匹配摸牌
+			if (get.color(result.cards[0]) === get.color(card)) {
+				await player.draw();
+				game.log(player, "弃置的牌与目标牌颜色相同，摸一张牌");
+			}
+		},
+	},
 };
 
 export default skills;
