@@ -1,54 +1,52 @@
 const skills = {
 	rixun: {
 		skill_id: "rixun",
-		group: ["rixun_effect", "rixun_sha_bonus"],
+		group: ["rixun_effect"],
 		subSkill: {
 			effect: {
 				skill_id: "rixun_effect",
-				trigger: {
-					global: "phaseBegin",
-				},
+				trigger: { global: "phaseBegin" },
 				forced: true,
 				filter: function (event, player) {
-					var result = event.player.storage.rixun_mark == player && player.isAlive();
-					return result;
+					return event.player.storage.rixun_mark == player && player.isAlive();
 				},
-				content: function () {
-					"step 0";
+				content: async function (event, trigger, player) {
 					var target = trigger.player;
 					target.storage.rixun_mark = false;
 					target.unmarkSkill("rixun_mark");
-					var next = target.chooseControlList(
-						["跳过摸牌阶段，本回合使用【杀】伤害+1", "跳过出牌阶段，回复1点体力"],
-						true,
-					);
-					next.set("ai", function () {
-						var self = trigger.player;
-						var judges = self.getCards("j");
-						var hasLebu = false;
-						var hasBingliang = false;
-						for (var i = 0; i < judges.length; i++) {
-							if (judges[i].name == "lebu") hasLebu = true;
-							if (judges[i].name == "bingliang") hasBingliang = true;
-						}
-						// 有乐不思蜀 → 选回血（乐跳了出牌阶段也是白回血）
-						if (hasLebu) return 1;
-						// 有兵粮寸断 → 选杀+1（兵跳了摸牌阶段，选1等于白赚）
-						if (hasBingliang) return 0;
-						// 有杀且有可攻击敌人 → 选杀+1
-						if (self.countCards("h", { name: "sha" }) > 0) {
-							var enemies = game.filterPlayer(function (current) {
-								return current != self && get.attitude(self, current) < 0 && self.inRange(current);
-							});
-							if (enemies.length > 0) return 0;
-						}
-						// 残血 → 选回血
-						if (self.hp < self.maxHp) return 1;
-						// 默认 → 选杀+1
-						return 0;
-					});
-					("step 1");
-					var target = trigger.player;
+
+					var result = await target
+						.chooseControlList(
+							["跳过摸牌阶段，本回合使用【杀】伤害+1", "跳过出牌阶段，回复1点体力"],
+							true,
+						)
+						.set("ai", function () {
+							var self = trigger.player;
+							var judges = self.getCards("j");
+							var hasLebu = false;
+							var hasBingliang = false;
+							for (var i = 0; i < judges.length; i++) {
+								if (judges[i].name == "lebu") hasLebu = true;
+								if (judges[i].name == "bingliang") hasBingliang = true;
+							}
+							// 有乐不思蜀 → 选回血（乐跳了出牌阶段也是白回血）
+							if (hasLebu) return 1;
+							// 有兵粮寸断 → 选杀+1（兵跳了摸牌阶段，选1等于白赚）
+							if (hasBingliang) return 0;
+							// 有杀且有可攻击敌人 → 选杀+1
+							if (self.countCards("h", { name: "sha" }) > 0) {
+								var enemies = game.filterPlayer(function (current) {
+									return (
+										current != self && get.attitude(self, current) < 0 && self.inRange(current)
+									);
+								});
+								if (enemies.length > 0) return 0;
+							}
+							// 残血 → 选回血
+							if (self.hp < self.maxHp) return 1;
+							// 默认 → 选杀+1
+							return 0;
+						});
 					game.log(
 						"【日询】",
 						target,
@@ -60,7 +58,7 @@ const skills = {
 						target.addTempSkill("rixun_sha_bonus", { player: "phaseAfter" });
 					} else {
 						target.skip("phaseUse");
-						target.recover();
+						await target.recover();
 					}
 				},
 				sub: true,
@@ -68,13 +66,10 @@ const skills = {
 			},
 			sha_bonus: {
 				skill_id: "rixun_sha_bonus",
-				trigger: {
-					source: "damageBegin",
-				},
+				trigger: { source: "damageBegin" },
 				forced: true,
 				filter: function (event, player) {
-					var result = event.card && event.card.name == "sha";
-					return result;
+					return event.card && event.card.name == "sha";
 				},
 				content: function () {
 					trigger.num++;
@@ -93,9 +88,10 @@ const skills = {
 		filterTarget: function (card, player, target) {
 			return target != player;
 		},
-		content: function () {
-			game.log("【日询】", player, "将", cards, "交给", target);
-			player.give(cards, target);
+		content: async function (event, trigger, player) {
+			var target = event.target;
+			game.log("【日询】", player, "将", event.cards, "交给", target);
+			await player.give(event.cards, target);
 			target.storage.rixun_mark = player;
 			target.markSkill("rixun_mark");
 		},
@@ -157,9 +153,7 @@ const skills = {
 					}
 				},
 			},
-			tag: {
-				gain: 1,
-			},
+			tag: { gain: 1 },
 		},
 	},
 	moyu: {
