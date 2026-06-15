@@ -280,7 +280,8 @@ const skills = {
 			grant: {
 				skill_id: "tuhao_grant",
 				trigger: { global: "phaseUseBegin" },
-				forced: true,
+				forced: false,
+				frequent: true,
 				popup: false,
 				filter: function (event, player) {
 					return event.player != player && player.isAlive();
@@ -582,7 +583,8 @@ const skills = {
 		trigger: {
 			player: "damageBegin1",
 		},
-		forced: true, // 实际上并非锁定技，只是让选择减少一步
+		forced: false,
+		frequent: true,
 		popup: false,
 		filter: function (event, player) {
 			return event.card && player.countCards("h") > 0;
@@ -704,7 +706,8 @@ const skills = {
 	maihao: {
 		skill_id: "maihao",
 		trigger: { global: "dieAfter" },
-		forced: true, // 实际上是非锁定技，只是去除系统询问
+		forced: false,
+		frequent: true,
 		popup: false,
 		filter: function (event, player) {
 			var round = game.roundNumber;
@@ -802,7 +805,8 @@ const skills = {
 	jiche: {
 		skill_id: "jiche",
 		trigger: { global: "useCardToPlayer" },
-		forced: true,
+		forced: false,
+		frequent: true,
 		popup: false,
 		filter: function (event, player) {
 			if (event.target === player) return false;
@@ -928,6 +932,7 @@ const skills = {
 		skill_id: "daifa",
 		trigger: { global: "phaseEnd" },
 		forced: false,
+		frequent: true,
 		group: ["daifa_dtrack", "daifa_reset"],
 		filter: function (event, player) {
 			if (event.player === player) return false;
