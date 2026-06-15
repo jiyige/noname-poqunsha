@@ -1008,6 +1008,154 @@ const skills = {
 			},
 		},
 	},
+	caishang: {
+		skill_id: "caishang",
+		trigger: { player: "phaseEnd" },
+		forced: false,
+		frequent: true,
+		filter: function (event, player) {
+			return game.hasPlayer(function (current) {
+				return current !== player && current.countCards("h") > 0;
+			});
+		},
+		content: async function (event, trigger, player) {
+			var X = Math.max(player.maxHp - player.hp, 1);
+
+			var result = await player
+				.chooseTarget(
+					"【财商】选择至多" + X + "名其他角色（他们可以交给你一张手牌）",
+					[1, X],
+					function (card, player, target) {
+						return target !== player && target.countCards("h") > 0;
+					},
+				)
+				.set("ai", function (target) {
+					if (get.attitude(target, player) <= 0) return 0;
+					return get.attitude(target, player) + target.countCards("h");
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			var givers = [];
+
+			for (var i = 0; i < result.targets.length; i++) {
+				var target = result.targets[i];
+				if (target.isDead() || !target.countCards("h")) continue;
+
+				var giveResult = await target
+					.chooseCard(
+						"h",
+						"【财商】交给" + get.translation(player) + "一张手牌（选牌交出，取消拒绝）",
+					)
+					.set("ai", function (card) {
+						if (get.attitude(target, player) <= 0) return -1;
+						return 6 - get.value(card);
+					})
+					.forResult();
+
+				if (giveResult.bool && giveResult.cards) {
+					await target.give(giveResult.cards[0], player);
+					givers.push(target);
+					game.log(target, "交给", player, "一张手牌");
+				}
+			}
+
+			// 记录本轮给过牌的角色，供下回合深造使用
+			player.storage.caishang_givers = givers;
+		},
+	},
+	shenzao: {
+		skill_id: "shenzao",
+		trigger: { player: "phaseDrawBegin" },
+		forced: false,
+		frequent: true,
+		filter: function (event, player) {
+			return player.countCards("h") > 0;
+		},
+		content: async function (event, trigger, player) {
+			// 弃置任意张牌
+			var result = await player
+				.chooseToDiscard("h", "【深造】弃置任意张牌，多摸等量的牌（手牌上限-1）")
+				.set("selectCard", [1, player.countCards("h")])
+				.set("ai", function (card) {
+					return 6 - get.value(card);
+				})
+				.forResult();
+
+			if (!result.bool || !result.cards || !result.cards.length) return;
+
+			var discardCount = result.cards.length;
+			var discardedCards = result.cards;
+
+			// 多摸等量的牌
+			trigger.num += discardCount;
+
+			// 本回合手牌上限-1
+			player.addTempSkill("shenzao_limit", "roundAfter");
+
+			// 读取上回合财商给过牌的角色
+			var givers = player.storage.caishang_givers || [];
+			player.storage.caishang_givers = [];
+
+			// 依次选择是否给弃置的牌
+			for (var i = 0; i < givers.length; i++) {
+				var giver = givers[i];
+				if (!giver || giver.isDead()) continue;
+
+				var available = discardedCards.filter(function (c) {
+					return c.parentNode === ui.discardPile;
+				});
+				if (!available.length) break;
+
+				var cardResult = await player
+					.chooseButton([
+						"【深造】是否将一张弃置的牌交给" + get.translation(giver) + "？",
+						available,
+					])
+					.set("ai", function (button) {
+						if (get.attitude(player, giver) <= 0) return false;
+						return true;
+					})
+					.forResult();
+
+				if (cardResult.bool && cardResult.links) {
+					var idx = available.indexOf(cardResult.links[0]);
+					if (idx !== -1) available.splice(idx, 1);
+					await giver.gain(cardResult.links[0], "gain2");
+					game.log(player, "将", cardResult.links[0], "交给", giver);
+				}
+			}
+		},
+		subSkill: {
+			limit: {
+				skill_id: "shenzao_limit",
+				charlotte: true,
+				mark: false,
+				mod: {
+					maxHandcard: function (player, num) {
+						return num - 1;
+					},
+				},
+			},
+		},
+	},
+	yuefeng: {
+		skill_id: "yuefeng",
+		zhuSkill: true,
+		forced: true,
+		locked: true,
+		mod: {
+			maxHandcard: function (player, num) {
+				return (
+					num +
+					game.filterPlayer(function (current) {
+						return current.group === "qun" && current.isAlive();
+					}).length
+				);
+			},
+		},
+	},
 };
 
 export default skills;

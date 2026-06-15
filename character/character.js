@@ -38,11 +38,20 @@ const characters = {
 	poqun_dadi: {
 		sex: "male",
 		group: "shu",
-		hp: 6,
-		maxHp: 6,
+		hp: 5,
+		maxHp: 5,
 		hujia: 0,
 		skills: ["bianlu", "daifa"],
 		img: "extension/破群杀/image/dadi.jpg",
+	},
+	poqun_peipei: {
+		sex: "female",
+		group: "qun",
+		hp: 3,
+		maxHp: 3,
+		hujia: 0,
+		skills: ["caishang", "shenzao", "yuefeng"],
+		img: "extension/破群杀/image/peipei.jpg",
 	},
 };
 
