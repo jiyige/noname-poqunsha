@@ -1,13 +1,13 @@
 // 每个角色翻译隔开一下
 const translates = {
 	poqun_jiyi: "记忆",
-	rixun: "日询",
-	rixun_info:
+	poqun_rixun: "日询",
+	poqun_rixun_info:
 		"出牌阶段限一次，你将一张手牌交给一名其他角色，若如此做，该角色回合开始时须选择一项:1·跳过摸牌阶段，此回合使用【杀】伤害+1；2.跳过出牌阶段，回复1点体力。",
-	moyu: "摸鱼",
-	moyu_info: "一名角色回合结束后，若其回合内没有使用【杀】，你可以摸一张牌。",
-	yuyu: "玉玉",
-	yuyu_info:
+	poqn_touxian: "偷闲",
+	poqn_touxian_info: "一名角色回合结束后，若其回合内没有使用牌，你可以摸一张牌。",
+	poqun_yishen: "抑沈",
+	poqun_yishen_info:
 		"当你受到伤害后，你可以记录伤害牌的花色。锁定技，本回合与此法记录的花色相同的牌对你造成伤害取消之。",
 
 	poqun_xiaoche: "小澈",

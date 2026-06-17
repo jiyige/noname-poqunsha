@@ -1,25 +1,26 @@
 const skills = {
-	rixun: {
-		skill_id: "rixun",
-		group: ["rixun_effect"],
+	poqun_rixun: {
+		skill_id: "poqun_rixun",
+		group: ["poqun_rixun_effect"],
 		subSkill: {
 			effect: {
-				skill_id: "rixun_effect",
+				skill_id: "poqun_rixun_effect",
 				trigger: { global: "phaseBegin" },
 				forced: true,
 				filter: function (event, player) {
-					return event.player.storage.rixun_mark == player && player.isAlive();
+					return event.player.storage.poqun_rixun_mark == player && player.isAlive();
 				},
 				content: async function (event, trigger, player) {
 					var target = trigger.player;
-					target.storage.rixun_mark = false;
-					target.unmarkSkill("rixun_mark");
+					target.storage.poqun_rixun_mark = false;
+					target.unmarkSkill("poqun_rixun_mark");
 
 					var result = await target
-						.chooseControlList(
-							["跳过摸牌阶段，本回合使用【杀】伤害+1", "跳过出牌阶段，回复1点体力"],
-							true,
-						)
+						.chooseControlList([
+							"跳过摸牌阶段，本回合使用【杀】伤害+1",
+							"跳过出牌阶段，回复1点体力",
+						])
+						.set("forced", true)
 						.set("ai", function () {
 							var self = trigger.player;
 							var judges = self.getCards("j");
@@ -46,7 +47,8 @@ const skills = {
 							if (self.hp < self.maxHp) return 1;
 							// 默认 → 选杀+1
 							return 0;
-						});
+						})
+						.forResult();
 					game.log(
 						"【日询】",
 						target,
@@ -55,17 +57,17 @@ const skills = {
 					);
 					if (result.index == 0) {
 						target.skip("phaseDraw");
-						target.addTempSkill("rixun_sha_bonus", { player: "phaseAfter" });
+						target.addTempSkill("poqun_rixun_sha_bonus", { player: "phaseAfter" });
 					} else {
 						target.skip("phaseUse");
 						await target.recover();
 					}
 				},
 				sub: true,
-				sourceSkill: "rixun",
+				sourceSkill: "poqun_rixun",
 			},
 			sha_bonus: {
-				skill_id: "rixun_sha_bonus",
+				skill_id: "poqun_rixun_sha_bonus",
 				trigger: { source: "damageBegin" },
 				forced: true,
 				filter: function (event, player) {
@@ -75,7 +77,7 @@ const skills = {
 					trigger.num++;
 				},
 				sub: true,
-				sourceSkill: "rixun",
+				sourceSkill: "poqun_rixun",
 			},
 		},
 		enable: "phaseUse",
@@ -92,8 +94,8 @@ const skills = {
 			var target = event.target;
 			game.log("【日询】", player, "将", event.cards, "交给", target);
 			await player.give(event.cards, target);
-			target.storage.rixun_mark = player;
-			target.markSkill("rixun_mark");
+			target.storage.poqun_rixun_mark = player;
+			target.markSkill("poqun_rixun_mark");
 		},
 		ai: {
 			order: 6,
@@ -156,19 +158,15 @@ const skills = {
 			tag: { gain: 1 },
 		},
 	},
-	moyu: {
-		skill_id: "moyu",
+	poqn_touxian: {
+		skill_id: "poqn_touxian",
 		trigger: {
 			global: "phaseAfter",
 		},
 		forced: false,
 		filter: function (event, player) {
 			if (!player.isAlive()) return false;
-			return (
-				event.player.getHistory("useCard", function (evt) {
-					return evt.card.name == "sha";
-				}).length == 0
-			);
+			return event.player.getHistory("useCard").length === 0;
 		},
 		content: function () {
 			player.draw();
@@ -177,8 +175,8 @@ const skills = {
 			threaten: 1.2,
 		},
 	},
-	yuyu: {
-		skill_id: "yuyu",
+	poqun_yishen: {
+		skill_id: "poqun_yishen",
 		marktext: "玉",
 		intro: {
 			content: function (storage) {
@@ -194,44 +192,44 @@ const skills = {
 				);
 			},
 		},
-		group: ["yuyu_def", "yuyu_clean"],
+		group: ["poqun_yishen_def", "poqun_yishen_clean"],
 		subSkill: {
 			def: {
-				skill_id: "yuyu_def",
+				skill_id: "poqun_yishen_def",
 				trigger: {
 					player: "damageBegin2",
 				},
 				forced: true,
 				filter: function (event, player) {
 					return (
-						player.storage.yuyu &&
-						player.storage.yuyu.length > 0 &&
+						player.storage.poqun_yishen &&
+						player.storage.poqun_yishen.length > 0 &&
 						event.card &&
-						player.storage.yuyu.indexOf(get.suit(event.card)) != -1
+						player.storage.poqun_yishen.indexOf(get.suit(event.card)) != -1
 					);
 				},
 				content: function () {
 					trigger.cancel();
 				},
 				sub: true,
-				sourceSkill: "yuyu",
+				sourceSkill: "poqun_yishen",
 			},
 			clean: {
-				skill_id: "yuyu_clean",
+				skill_id: "poqun_yishen_clean",
 				trigger: {
 					player: "phaseBegin",
 				},
 				forced: true,
 				popup: false,
 				filter: function (event, player) {
-					return player.storage.yuyu && player.storage.yuyu.length > 0;
+					return player.storage.poqun_yishen && player.storage.poqun_yishen.length > 0;
 				},
 				content: function () {
-					player.storage.yuyu = [];
-					player.unmarkSkill("yuyu");
+					player.storage.poqun_yishen = [];
+					player.unmarkSkill("poqun_yishen");
 				},
 				sub: true,
-				sourceSkill: "yuyu",
+				sourceSkill: "poqun_yishen",
 			},
 		},
 		trigger: {
@@ -243,20 +241,20 @@ const skills = {
 		},
 		content: function () {
 			var suit = get.suit(trigger.card);
-			game.log("【玉玉】记录花色：", suit);
-			if (!player.storage.yuyu) player.storage.yuyu = [];
-			if (player.storage.yuyu.indexOf(suit) == -1) {
-				player.storage.yuyu.push(suit);
+			game.log("【抑沈】记录花色：", suit);
+			if (!player.storage.poqun_yishen) player.storage.poqun_yishen = [];
+			if (player.storage.poqun_yishen.indexOf(suit) == -1) {
+				player.storage.poqun_yishen.push(suit);
 			}
-			player.markSkill("yuyu");
+			player.markSkill("poqun_yishen");
 		},
 		ai: {
 			threaten: 1,
 			effect: {
 				target: function (card, player, target, current) {
-					if (target.storage.yuyu && target.storage.yuyu.length > 0 && card) {
+					if (target.storage.poqun_yishen && target.storage.poqun_yishen.length > 0 && card) {
 						var suit = get.suit(card);
-						if (suit && target.storage.yuyu.indexOf(suit) != -1) {
+						if (suit && target.storage.poqun_yishen.indexOf(suit) != -1) {
 							// 返回0表示"此牌对该目标无效"
 							if (get.tag(card, "damage")) {
 								return 0;
