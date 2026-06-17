@@ -1155,6 +1155,77 @@ const skills = {
 			},
 		},
 	},
+	poqun_fugui: {
+		skill_id: "poqun_fugui",
+		trigger: { player: "damageBegin2" },
+		forced: false,
+		frequent: true,
+		mod: {
+			targetEnabled: function (card, player, target) {
+				if (target.isTurnedOver() && get.type(card) === "delay") return false;
+			},
+		},
+		filter: function (event, player) {
+			return !player.isTurnedOver();
+		},
+		content: async function (event, trigger, player) {
+			var result = await player
+				.chooseBool("是否发动【复归】，翻面防止此伤害？")
+				.set("ai", function () {
+					if (player.hp <= trigger.num) return true;
+					if (trigger.num >= 2) return true;
+					if (player.hp >= 4) return true;
+					return false;
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			player.turnOver();
+			trigger.cancel();
+			game.log(player, "发动【复归】，翻面防止此伤害");
+		},
+	},
+	poqun_lingfeng: {
+		skill_id: "poqun_lingfeng",
+		trigger: {
+			player: "phaseBefore",
+		},
+		forced: true,
+		popup: false,
+		filter: function (event, player) {
+			return player.isTurnedOver();
+		},
+		content: async function (event, trigger, player) {
+			// 摸两张牌
+			await player.draw(2);
+
+			// 额外回合
+			player.addSkill("safeng_sha_bonus");
+			await player.phaseUse();
+			player.removeSkill("safeng_sha_bonus");
+		},
+		subSkill: {
+			sha_bonus: {
+				skill_id: "poqun_lingfeng_sha_bonus",
+				charlotte: true,
+				mod: {
+					targetInRange: function (card, player) {
+						if (card.name === "sha") return true;
+					},
+				},
+				trigger: { player: "useCard" },
+				forced: true,
+				popup: false,
+				filter: function (event, player) {
+					return event.card && event.card.name === "sha";
+				},
+				content: async function (event, trigger, player) {
+					trigger.directHit.addArray(trigger.targets);
+				},
+			},
+		},
+	},
 };
 
 export default skills;

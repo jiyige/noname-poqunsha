@@ -53,6 +53,15 @@ const characters = {
 		skills: ["caishang", "shenzao", "yuefeng"],
 		img: "extension/破群杀/image/peipei.jpg",
 	},
+	poqun_fengjie: {
+		sex: "male",
+		group: "qun",
+		hp: 4,
+		maxHp: 4,
+		hujia: 0,
+		skills: ["poqun_fugui", "poqun_lingfeng"],
+		img: "extension/破群杀/image/fengjie.jpg",
+	},
 };
 
 export default characters;
