@@ -27,11 +27,11 @@ const translates = {
 	shenyin_info: "锁定技，你不能成为兵粮寸断的目标，其他角色计算与你的距离+1。",
 
 	poqun_lingxin: "灵心",
-	ruoji: "弱鸡",
-	ruoji_info: "锁定技，你的红色【杀】视为【闪】，你的黑色【杀】视为无懈可击。",
-	jiche: "鸡车",
-	jiche_info:
-		"其他角色成为【杀】或锦囊牌（非你使用）的唯一目标时，你可以弃置一张手牌，代替其成为此牌目标。若你弃置的牌与目标牌颜色相同，你摸一张牌。",
+	poqun_cangfeng: "藏锋",
+	poqun_cangfeng_info: "锁定技，你的红色【杀】视为【闪】，你的黑色【杀】视为无懈可击。",
+	poqun_huifeng: "回锋",
+	poqun_huifeng_info:
+		"当你受到伤害后，你可以选择一名其他角色展示其手牌，你对其造成X（X为其手牌里【杀】的数量）点伤害。",
 
 	poqun_dadi: "大迪",
 	bianlu: "辩戮",

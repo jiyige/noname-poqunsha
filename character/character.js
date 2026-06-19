@@ -5,7 +5,7 @@ const characters = {
 		hp: 3,
 		maxHp: 3,
 		hujia: 0,
-		skills: ["rixun", "moyu", "yuyu"],
+		skills: ["poqun_rixun", "poqn_touxian", "poqun_yishen"],
 		img: "extension/破群杀/image/jiyi.jpg",
 	},
 	poqun_xiaoche: {
@@ -32,7 +32,7 @@ const characters = {
 		hp: 4,
 		maxHp: 4,
 		hujia: 0,
-		skills: ["ruoji", "jiche"],
+		skills: ["poqun_cangfeng", "poqun_huifeng"],
 		img: "extension/破群杀/image/lingxin.jpg",
 	},
 	poqun_dadi: {
