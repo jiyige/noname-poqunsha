@@ -41,7 +41,7 @@ const characters = {
 		hp: 5,
 		maxHp: 5,
 		hujia: 0,
-		skills: ["bianlu", "daifa"],
+		skills: ["poqun_bianlu", "poqun_daifa"],
 		img: "extension/破群杀/image/dadi.jpg",
 	},
 	poqun_peipei: {

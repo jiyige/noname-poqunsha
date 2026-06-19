@@ -840,15 +840,27 @@ const skills = {
 			threaten: 1,
 		},
 	},
-	bianlu: {
-		skill_id: "bianlu",
+	poqun_bianlu: {
+		skill_id: "poqun_bianlu",
 		trigger: { player: "phaseUseEnd" },
-		forced: true,
-		group: ["bianlu_reset", "bianlu_dtrack"],
+		forced: false,
+		limited: true,
+		group: ["poqun_bianlu_reset", "poqun_bianlu_dtrack"],
 		filter: function (event, player) {
-			return !player.storage.bianlu_damaged && player.maxHp > 1;
+			return !player.storage.poqun_bianlu_damaged && player.maxHp > 1;
+		},
+		check: function (event, player) {
+			if (player.maxHp <= 2) return false;
+			var enemies = game.filterPlayer(function (current) {
+				return current !== player && get.attitude(player, current) < 0;
+			});
+			return enemies.some(function (current) {
+				return !current.countCards("h", { name: "sha" });
+			});
 		},
 		content: async function (event, trigger, player) {
+			player.awakenSkill("poqun_bianlu");
+
 			player.maxHp--;
 			player.update();
 			game.log(player, "【辩戮】减1点体力上限");
@@ -862,18 +874,18 @@ const skills = {
 		},
 		subSkill: {
 			reset: {
-				skill_id: "bianlu_reset",
+				skill_id: "poqun_bianlu_reset",
 				trigger: { player: "phaseBegin" },
 				forced: true,
 				popup: false,
 				silent: true,
 				firstDo: true,
 				content: function (event, trigger, player) {
-					player.storage.bianlu_damaged = false;
+					player.storage.poqun_bianlu_damaged = false;
 				},
 			},
 			dtrack: {
-				skill_id: "bianlu_dtrack",
+				skill_id: "poqun_bianlu_dtrack",
 				trigger: { source: "damageAfter" },
 				forced: true,
 				popup: false,
@@ -882,21 +894,20 @@ const skills = {
 					return _status.currentPhase === player;
 				},
 				content: function (event, trigger, player) {
-					player.storage.bianlu_damaged = true;
+					player.storage.poqun_bianlu_damaged = true;
 				},
 			},
 		},
 	},
-	daifa: {
-		skill_id: "daifa",
+	poqun_daifa: {
+		skill_id: "poqun_daifa",
 		trigger: { global: "phaseEnd" },
 		forced: false,
-		frequent: true,
-		group: ["daifa_dtrack", "daifa_reset"],
+		group: ["poqun_daifa_dtrack", "poqun_daifa_reset"],
 		filter: function (event, player) {
 			if (event.player === player) return false;
 			if (event.player.isDead()) return false;
-			if (!event.player.storage.daifa_damaged_this_turn) return false;
+			if (!event.player.storage.poqun_daifa_damaged_this_turn) return false;
 			var round = game.roundNumber;
 			if (player.storage.daifa_round !== round) {
 				player.storage.daifa_round = round;
@@ -904,7 +915,7 @@ const skills = {
 			}
 			var maxUse = player.maxHp - player.hp;
 			if (maxUse <= 0) return false;
-			if (player.storage.daifa_count >= maxUse) return false;
+			if ((player.storage.poqun_daifa_count || 0) >= maxUse) return false;
 			return player.countCards("h") > 0;
 		},
 		content: async function (event, trigger, player) {
@@ -934,40 +945,34 @@ const skills = {
 				player.storage.daifa_count = 0;
 			}
 			player.storage.daifa_count++;
-			console.log("代伐使用次数+1");
 
 			var juedou = game.createCard("juedou", "none", 0);
-			console.log("创建一张决斗", juedou);
 			await player.useCard(juedou, [target]);
 
 			game.log(player, "发动【代伐】，弃置一张手牌，对", target, "使用【决斗】");
 		},
 		subSkill: {
 			dtrack: {
-				skill_id: "daifa_dtrack",
+				skill_id: "poqun_daifa_dtrack",
 				trigger: { global: "damageSource" },
 				forced: true,
 				popup: false,
 				silent: true,
 				filter: function (event, player) {
-					console.log("当前角色", _status.currentPhase);
-					console.log("伤害来源", event.source);
 					return _status.currentPhase === event.source;
 				},
 				content: function (event, trigger, player) {
-					console.log("当前角色造成了伤害");
-					trigger.source.storage.daifa_damaged_this_turn = true;
+					trigger.source.storage.poqun_daifa_damaged_this_turn = true;
 				},
 			},
 			reset: {
-				skill_id: "daifa_reset",
-				trigger: { global: "turnBegin" },
+				skill_id: "poqun_daifa_reset",
+				trigger: { global: "phaseBegin" },
 				forced: true,
 				popup: false,
 				silent: true,
 				content: function (event, trigger, player) {
-					console.log("当前角色重置", trigger.player);
-					trigger.player.storage.daifa_damaged_this_turn = false;
+					trigger.player.storage.poqun_daifa_damaged_this_turn = false;
 				},
 			},
 		},
