@@ -44,14 +44,23 @@ const characters = {
 		skills: ["poqun_bianlu", "poqun_daifa"],
 		img: "extension/破群杀/image/dadi.jpg",
 	},
-	poqun_peipei: {
-		sex: "female",
-		group: "qun",
+	// poqun_peipei: {
+	// 	sex: "female",
+	// 	group: "qun",
+	// 	hp: 3,
+	// 	maxHp: 3,
+	// 	hujia: 0,
+	// 	skills: ["poqun_yucheng", "poqun_quanduan", "poqun_yuefeng"],
+	// 	img: "extension/破群杀/image/peipei.jpg",
+	// },
+	poqun_shaoye: {
+		sex: "male",
+		group: "wu",
 		hp: 3,
 		maxHp: 3,
 		hujia: 0,
-		skills: ["caishang", "shenzao", "yuefeng"],
-		img: "extension/破群杀/image/peipei.jpg",
+		skills: ["poqun_yucheng", "poqun_quanduan", "poqun_quce"],
+		img: "extension/破群杀/image/shaoye.jpg",
 	},
 	poqun_fengjie: {
 		sex: "male",

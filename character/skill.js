@@ -977,8 +977,8 @@ const skills = {
 			},
 		},
 	},
-	caishang: {
-		skill_id: "caishang",
+	poqun_yucheng: {
+		skill_id: "poqun_yucheng",
 		trigger: { player: "phaseEnd" },
 		forced: false,
 		frequent: true,
@@ -992,7 +992,7 @@ const skills = {
 
 			var result = await player
 				.chooseTarget(
-					"【财商】选择至多" + X + "名其他角色（他们可以交给你一张手牌）",
+					"【予诚】选择至多" + X + "名其他角色（他们可以交给你一张手牌）",
 					[1, X],
 					function (card, player, target) {
 						return target !== player && target.countCards("h") > 0;
@@ -1015,7 +1015,7 @@ const skills = {
 				var giveResult = await target
 					.chooseCard(
 						"h",
-						"【财商】交给" + get.translation(player) + "一张手牌（选牌交出，取消拒绝）",
+						"【予诚】交给" + get.translation(player) + "一张手牌（选牌交出，取消拒绝）",
 					)
 					.set("ai", function (card) {
 						if (get.attitude(target, player) <= 0) return -1;
@@ -1030,12 +1030,12 @@ const skills = {
 				}
 			}
 
-			// 记录本轮给过牌的角色，供下回合深造使用
-			player.storage.caishang_givers = givers;
+			// 记录本轮给过牌的角色，供下回合权断使用
+			player.storage.poqun_yucheng_givers = givers;
 		},
 	},
-	shenzao: {
-		skill_id: "shenzao",
+	poqun_quanduan: {
+		skill_id: "poqun_quanduan",
 		trigger: { player: "phaseDrawBegin" },
 		forced: false,
 		frequent: true,
@@ -1045,7 +1045,7 @@ const skills = {
 		content: async function (event, trigger, player) {
 			// 弃置任意张牌
 			var result = await player
-				.chooseToDiscard("h", "【深造】弃置任意张牌，多摸等量的牌（手牌上限-1）")
+				.chooseToDiscard("h", "【权断】弃置任意张牌，多摸等量的牌")
 				.set("selectCard", [1, player.countCards("h")])
 				.set("ai", function (card) {
 					return 6 - get.value(card);
@@ -1060,12 +1060,9 @@ const skills = {
 			// 多摸等量的牌
 			trigger.num += discardCount;
 
-			// 本回合手牌上限-1
-			player.addTempSkill("shenzao_limit", "roundAfter");
-
-			// 读取上回合财商给过牌的角色
-			var givers = player.storage.caishang_givers || [];
-			player.storage.caishang_givers = [];
+			// 读取上回合予诚给过牌的角色
+			var givers = player.storage.poqun_yucheng_givers || [];
+			player.storage.poqun_yucheng_givers = [];
 
 			// 依次选择是否给弃置的牌
 			for (var i = 0; i < givers.length; i++) {
@@ -1079,7 +1076,7 @@ const skills = {
 
 				var cardResult = await player
 					.chooseButton([
-						"【深造】是否将一张弃置的牌交给" + get.translation(giver) + "？",
+						"【权断】是否将一张弃置的牌交给" + get.translation(giver) + "？",
 						available,
 					])
 					.set("ai", function (button) {
@@ -1096,21 +1093,107 @@ const skills = {
 				}
 			}
 		},
+	},
+	poqun_quce: {
+		skill_id: "poqun_quce",
+		zhuSkill: true,
+		trigger: { global: "roundStart" },
+		forced: false,
+		frequent: true,
+		filter: function (event, player) {
+			return player.isAlive();
+		},
+		content: async function (event, trigger, player) {
+			var result = await player
+				.chooseTarget("【驱策】指定一名角色（吴势力角色对其使用【杀】可摸一张牌）")
+				.set("ai", function (target) {
+					if (get.attitude(player, target) < 0) {
+						var wuAllies = game.filterPlayer(function (current) {
+							return (
+								current !== player &&
+								current.group === "wu" &&
+								current.isAlive() &&
+								current.inRange(target)
+							);
+						});
+						return wuAllies.length * 5 + 2;
+					}
+					return 0;
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			// 移除上一个目标的标记
+			var oldTarget = game.findPlayer(function (current) {
+				return current.hasSkill("poqun_quce_mark");
+			});
+			if (oldTarget) {
+				oldTarget.removeSkill("poqun_quce_mark");
+			}
+
+			// 设置新目标并加标记
+			var newTarget = result.targets[0];
+			newTarget.addTempSkill("poqun_quce_mark", "roundAfter");
+			newTarget.markSkill("poqun_quce_mark");
+
+			player.addTempSkill("poqun_quce_sha_bonus", "roundAfter");
+			player.addTempSkill("poqun_quce_phase_reset", "roundAfter");
+			game.log(player, "发动【驱策】，指定", result.targets[0]);
+		},
 		subSkill: {
-			limit: {
-				skill_id: "shenzao_limit",
+			mark: {
+				skill_id: "poqun_quce_mark",
 				charlotte: true,
-				mark: false,
-				mod: {
-					maxHandcard: function (player, num) {
-						return num - 1;
-					},
+				marktext: "策",
+				intro: {
+					content: "被指定为【驱策】的目标",
+				},
+			},
+			sha_bonus: {
+				skill_id: "poqun_quce_sha_bonus",
+				trigger: { global: "useCard" },
+				forced: true,
+				popup: false,
+				filter: function (event, player) {
+					if (!event.card || event.card.name !== "sha") return false;
+					var target = game.findPlayer(function (current) {
+						return current.hasSkill("poqun_quce_mark");
+					});
+					if (!target) return false;
+					var source = event.player;
+					if (source.group !== "wu") return false;
+					if (source.isDead()) return false;
+					// 目标是指定角色
+					if (!event.targets || !event.targets.includes(target)) return false;
+					// 出牌阶段限一次
+					if (source.storage.poqun_quce_used_this_phase) return false;
+					return true;
+				},
+				content: async function (event, trigger, player) {
+					var source = trigger.player;
+					source.storage.poqun_quce_used_this_phase = true;
+					await source.draw();
+					var target = game.findPlayer(function (current) {
+						return current.hasSkill("poqun_quce_mark");
+					});
+					game.log("【驱策】", source, "对", target, "使用【杀】，摸一张牌");
+				},
+			},
+			phase_reset: {
+				skill_id: "poqun_quce_phase_reset",
+				trigger: { global: "phaseAfter" },
+				forced: true,
+				popup: false,
+				silent: true,
+				content: function (event, trigger, player) {
+					trigger.player.storage.poqun_quce_used_this_phase = false;
 				},
 			},
 		},
 	},
-	yuefeng: {
-		skill_id: "yuefeng",
+	poqun_yuefeng: {
+		skill_id: "poqun_yuefeng",
 		zhuSkill: true,
 		forced: true,
 		locked: true,

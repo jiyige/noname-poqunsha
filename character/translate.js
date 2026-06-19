@@ -41,15 +41,20 @@ const translates = {
 	poqun_daifa_info:
 		"每轮限X次（X为你已损失的体力值），其他角色回合结束时，若其于此回合造成过伤害，你可以弃置一张手牌视为对其使用一张【决斗】。",
 
+	poqun_shaoye: "少爷",
+	poqun_yucheng: "予诚",
+	poqun_yucheng_info:
+		"回合结束时，你可以指定至多X(X为你当前已损失的体力值且至少为1）名其他角色，被指定的角色可以交给你一张手牌。",
+	poqun_quanduan: "权断",
+	poqun_quanduan_info:
+		"摸牌阶段，你可以弃置任意张牌，然后多摸等量的牌。上回合因【予诚】给过手牌的角色你可以依次选择其是否获得1张你以此法弃置的牌。",
+	poqun_quce: "驱策",
+	poqun_quce_info:
+		"主公技，每轮开始时，你可以指定一名角色。吴势力角色出牌阶段限一次，对你指定的角色使用【杀】可以摸一张牌。",
+
 	poqun_peipei: "佩佩",
-	caishang: "财商",
-	caishang_info:
-		"回合结束时，你可以指定至多X名其他角色（X为你当前已损失的体力值且至少为1），被指定的角色可以交给你一张手牌。",
-	shenzao: "深造",
-	shenzao_info:
-		"摸牌阶段，你可以弃置任意张牌，然后多摸等量的牌。若如此做，你本回合手牌上限-1。上回合因【财商】给过手牌的角色你可以依次选择其是否获得1张你以此法弃置的牌。",
-	yuefeng: "乐风",
-	yuefeng_info: "主公技，锁定技，你的手牌上限+X（X为场上的群势力角色数）。",
+	poqun_yuefeng: "乐风",
+	poqun_yuefeng_info: "主公技，锁定技，你的手牌上限+X（X为场上的群势力角色数）。",
 
 	poqun_fengjie: "风姐",
 	poqun_fugui: "复归",
