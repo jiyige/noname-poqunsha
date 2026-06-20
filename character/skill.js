@@ -334,7 +334,7 @@ const skills = {
 
 					// 请求者选牌型
 					var buttonResult = await player
-						.chooseButton(["【土豪】选择要使用的基本牌", [list, "vcard"]])
+						.chooseButton(["【乐施】选择要使用的基本牌", [list, "vcard"]])
 						.set("filterButton", function (button) {
 							var name = button.link[2];
 							if (name == "shan") return false;
@@ -373,7 +373,7 @@ const skills = {
 					if (!buttonResult.bool || !buttonResult.links) return;
 					var selectedName = buttonResult.links[0][2];
 					await player.addSkill("poqun_leshi_limit");
-					game.log(player, "发动了【土豪】，请求使用【", selectedName, "】");
+					game.log(player, "发动了【乐施】，请求使用【", selectedName, "】");
 
 					var target = player;
 					if (selectedName == "sha") {
@@ -405,7 +405,7 @@ const skills = {
 								return true;
 							});
 						xiaoch.popup("拒绝");
-						game.log(xiaoch, "拒绝了【土豪】请求");
+						game.log(xiaoch, "拒绝了【乐施】请求");
 						return;
 					}
 
@@ -416,7 +416,7 @@ const skills = {
 							function (card) {
 								return card.name == selectedName;
 							},
-							"【土豪】是否代" +
+							"【乐施】是否代" +
 								get.translation(player) +
 								"使用【" +
 								+get.translation(selectedName) +
@@ -450,7 +450,7 @@ const skills = {
 
 					if (!cardResult.bool || !cardResult.cards) {
 						xiaoch.popup("拒绝");
-						game.log(xiaoch, "拒绝了【土豪】请求");
+						game.log(xiaoch, "拒绝了【乐施】请求");
 						return;
 					}
 
@@ -520,10 +520,10 @@ const skills = {
 					var xiaoch = player.storage.poqun_leshi_xiaoch;
 					if (player.storage.poqun_leshi_dealt) {
 						await xiaoch.draw();
-						game.log("【土豪】", player, "于此阶段造成伤害，", xiaoch, "摸一张牌");
+						game.log("【乐施】", player, "于此阶段造成伤害，", xiaoch, "摸一张牌");
 					}
 					if (player.storage.poqun_leshi_recovered && player.getEquip(2) !== null) {
-						game.log("【土豪】", player, "于此阶段回复体力，", xiaoch, "获得", player, "的防具");
+						game.log("【乐施】", player, "于此阶段回复体力，", xiaoch, "获得", player, "的防具");
 						var card = player.getEquip(2);
 						if (xiaoch.getEquip(2)) {
 							await xiaoch.discard(xiaoch.getEquip(2));
@@ -563,7 +563,7 @@ const skills = {
 				charlotte: true,
 				mod: {
 					maxHandcard: function (player, num) {
-						game.log("【土豪】", player, "手牌上限-1");
+						game.log("【乐施】", player, "手牌上限-1");
 						return num - 1;
 					},
 				},
@@ -1516,7 +1516,6 @@ const skills = {
 				var type = get.type(name);
 				if (type === "trick" && get.subtype(name) !== "delay") {
 					var info = lib.card[name];
-					debugger;
 					if (
 						info &&
 						info.selectTarget !== -1 &&
@@ -1701,6 +1700,317 @@ const skills = {
 		},
 		ai: {
 			threaten: 1.5,
+		},
+	},
+	poqun_guangyin: {
+		skill_id: "poqun_guangyin",
+		forced: false,
+		group: ["poqun_guangyin_judge", "poqun_guangyin_discard"],
+		subSkill: {
+			// 判定时可选（非锁定技）
+			judge: {
+				skill_id: "poqun_guangyin_judge",
+				trigger: { global: "judge" },
+				forced: false,
+				frequent: true,
+				filter: function (event, player) {
+					return ui.cardPile && ui.cardPile.childNodes.length >= 2;
+				},
+				content: async function (event, trigger, player) {
+					var target = trigger.player;
+
+					// 先问古乐是否发动
+					var result = await player
+						.chooseBool("是否发动【光引】让" + get.translation(target) + "观看牌堆底两张牌？")
+						.set("ai", function () {
+							var att = get.attitude(player, target);
+							if (att <= 0) return false;
+							return true;
+						})
+						.forResult();
+
+					if (!result.bool) return;
+
+					player.logSkill("poqun_guangyin_judge");
+
+					var pile = ui.cardPile;
+					var bottomCards = [
+						pile.childNodes[pile.childNodes.length - 2],
+						pile.childNodes[pile.childNodes.length - 1],
+					];
+
+					// 让判定者选择
+					var chooseResult = await target
+						.chooseButton(["【光引】选择一张作为判定牌", bottomCards], true)
+						.set("ai", function (button) {
+							// 用 judge 函数评估，返回值对判定者有利
+							return trigger.judge(button.link);
+						})
+						.forResult();
+
+					if (!chooseResult.bool || !chooseResult.links) return;
+
+					var chosen = chooseResult.links[0];
+
+					if (trigger.player.judging[0].clone) {
+						trigger.player.judging[0].clone.classList.remove("thrownhighlight");
+						game.broadcast(function (card) {
+							if (card.clone) {
+								card.clone.classList.remove("thrownhighlight");
+							}
+						}, trigger.player.judging[0]);
+						game.addVideo("deletenode", player, get.cardsInfo([trigger.player.judging[0].clone]));
+					}
+
+					// 丢弃旧判定牌
+					game.cardsDiscard(trigger.player.judging[0]);
+
+					// 新判定牌从牌堆底移除
+					if (chosen.parentNode) {
+						chosen.parentNode.removeChild(chosen);
+					}
+
+					// 展示新判定牌（关键：加上视觉效果）
+					target.$throw(chosen);
+
+					// 替换判定牌
+					trigger.player.judging[0] = chosen;
+					trigger.orderingCards.add(chosen);
+
+					game.log(target, "的判定牌改为", chosen);
+					await game.delay(2);
+				},
+				sub: true,
+				sourceSkill: "poqun_guangyin",
+			},
+			// 弃牌进牌堆底（锁定技）
+			discard: {
+				skill_id: "poqun_guangyin_discard",
+				trigger: { player: "loseAfter" },
+				forced: true,
+				locked: true,
+				popup: false,
+				filter: function (event, player) {
+					return event.type === "discard";
+				},
+				content: async function (event, trigger, player) {
+					var cards = trigger.cards.filter(function (card) {
+						return card.parentNode === ui.discardPile;
+					});
+					if (!cards.length) return;
+
+					if (cards.length > 1) {
+						var next = player
+							.chooseToMove("【光引】将弃置的牌以任意顺序置于牌堆底")
+							.set("list", [["牌堆底", cards]])
+							.set("processAI", function (list) {
+								var cards = list[0][1].slice();
+
+								// 分析当前局面
+								// 1. 队友即将被判定（乐/兵/闪电）
+								var pendingJudge = null;
+								var judgeCards = [];
+								game.filterPlayer(function (current) {
+									if (get.attitude(player, current) <= 0) return false;
+									var judges = current.getCards("j");
+									for (var i = 0; i < judges.length; i++) {
+										var name = judges[i].name;
+										if (name === "lebu" || name === "bingliang" || name === "shandian") {
+											judgeCards.push({ name: name, target: current });
+										}
+									}
+								});
+
+								// 2. 手牌中的点数（用于激斗联动）
+								var handNumbers = {};
+								var handCards = player.getCards("h");
+								for (var i = 0; i < handCards.length; i++) {
+									var num = get.number(handCards[i]);
+									if (num) {
+										handNumbers[num] = (handNumbers[num] || 0) + 1;
+									}
+								}
+
+								cards.sort(function (a, b) {
+									var scoreA = 0;
+									var scoreB = 0;
+
+									// === 判定联动（放最后=牌堆底=判定用） ===
+									// 乐不思蜀需要♥
+									for (var i = 0; i < judgeCards.length; i++) {
+										var jc = judgeCards[i];
+										if (jc.name === "lebu") {
+											if (get.suit(a) === "heart") scoreA += 50;
+											if (get.suit(b) === "heart") scoreB += 50;
+										}
+										if (jc.name === "bingliang") {
+											if (get.suit(a) === "club") scoreA += 50;
+											if (get.suit(b) === "club") scoreB += 50;
+										}
+										if (jc.name === "shandian") {
+											if (get.suit(a) === "spade" && get.number(a) >= 2 && get.number(a) <= 9)
+												scoreA -= 50;
+											if (get.suit(b) === "spade" && get.number(b) >= 2 && get.number(b) <= 9)
+												scoreB -= 50;
+										}
+									}
+
+									// === 激斗联动（同点数放最后=牌堆底=判定用=激斗获得） ===
+									var numA = get.number(a);
+									var numB = get.number(b);
+									if (numA && handNumbers[numA]) scoreA += handNumbers[numA] * 15;
+									if (numB && handNumbers[numB]) scoreB += handNumbers[numB] * 15;
+
+									// === 通用排序（高价值放前面=靠近牌堆顶=更容易被摸到） ===
+									scoreA -= get.value(a) * 0.5;
+									scoreB -= get.value(b) * 0.5;
+
+									// score 高的放后面（牌堆底）
+									return scoreA - scoreB;
+								});
+
+								return [cards];
+							});
+						var result = await next.forResult();
+						if (result.bool) {
+							cards = result.moved[0];
+						}
+					}
+
+					for (var i = 0; i < cards.length; i++) {
+						ui.cardPile.appendChild(cards[i]);
+					}
+					game.log(player, "将弃置的牌以指定顺序置于牌堆底");
+				},
+				sub: true,
+				sourceSkill: "poqun_guangyin",
+			},
+		},
+	},
+	poqun_jidou: {
+		skill_id: "poqun_jidou",
+		trigger: { global: "useCardToTargeted" },
+		forced: false,
+		direct: true,
+		filter: function (event, player) {
+			return event.card && event.card.name === "juedou" && event.target && event.player;
+		},
+		content: async function (event, trigger, player) {
+			var source = trigger.player;
+			var target = trigger.target;
+
+			var chooseResult = await player
+				.chooseTarget("【激斗】令一名角色进行判定", function (card, player, t) {
+					return t === source || t === target;
+				})
+				.set("ai", function (t) {
+					return get.attitude(player, t);
+				})
+				.forResult();
+
+			if (!chooseResult.bool) return;
+
+			player.logSkill("poqun_jidou");
+
+			var chosen = chooseResult.targets[0];
+
+			var judgeEvent = chosen.judge();
+			judgeEvent.judging2 = true;
+			await judgeEvent;
+
+			var judgeCard = judgeEvent.result.card;
+			if (!judgeCard) return;
+
+			await chosen.gain(judgeCard, "gain2");
+			game.log(chosen, "获得了判定牌", judgeCard);
+
+			var judgeNumber = get.number(judgeCard);
+			if (judgeNumber) {
+				chosen.storage.poqun_jidou_number = judgeNumber;
+				chosen.storage.poqun_jidou_duel = trigger.getParent();
+				chosen.addTempSkill("poqun_jidou_sha");
+				game.log("【激斗】", chosen, "手中点数为" + judgeNumber + "的牌视为【杀】");
+			}
+		},
+		subSkill: {
+			sha: {
+				skill_id: "poqun_jidou_sha",
+				charlotte: true,
+				mod: {
+					cardname: function (card, player) {
+						if (
+							player.storage.poqun_jidou_number &&
+							get.number(card) === player.storage.poqun_jidou_number
+						) {
+							return "sha";
+						}
+					},
+				},
+				trigger: { global: "useCardAfter" },
+				forced: true,
+				popup: false,
+				silent: true,
+				filter: function (event, player) {
+					return event === player.storage.poqun_jidou_duel;
+				},
+				content: function (event, trigger, player) {
+					player.removeSkill("poqun_jidou_sha");
+					player.storage.poqun_jidou_number = null;
+					player.storage.poqun_jidou_duel = null;
+				},
+				mark: true,
+				marktext: "斗",
+				intro: {
+					content: function (storage, player) {
+						return "手牌中点数为" + player.storage.poqun_jidou_number + "的牌视为【杀】";
+					},
+				},
+				sub: true,
+				sourceSkill: "poqun_jidou",
+			},
+		},
+		ai: {
+			threaten: 1.2,
+		},
+	},
+	poqun_zhechong: {
+		skill_id: "poqun_zhechong",
+		trigger: { target: "useCardToTargeted" },
+		forced: false,
+		filter: function (event, player) {
+			if (!event.card || event.card.name !== "sha") return false;
+			if (player.hasSkill("poqun_zhechong_cd")) return false;
+			return true;
+		},
+		check: function (event, player) {
+			var source = event.player;
+			var shaInHand = player.countCards("h", { name: "sha" });
+			var enemySha = source.countCards("h", { name: "sha" });
+			if (get.attitude(player, source) >= 0) return false;
+			return shaInHand >= enemySha;
+		},
+		content: async function (event, trigger, player) {
+			player.addTempSkill("poqun_zhechong_cd", "roundAfter");
+
+			var idx = trigger.targets.indexOf(player);
+			if (idx !== -1) {
+				trigger.targets.splice(idx, 1);
+			}
+
+			await trigger.player.useCard(game.createCard("juedou", "none", 0), [player]);
+
+			game.log(player, "发动【折冲】，将", trigger.card, "转换为【决斗】");
+		},
+		subSkill: {
+			cd: {
+				skill_id: "poqun_zhechong_cd",
+				charlotte: true,
+				mark: true,
+				marktext: "折",
+				intro: { content: "本回合已发动【折冲】" },
+				sub: true,
+				sourceSkill: "poqun_zhechong",
+			},
 		},
 	},
 };

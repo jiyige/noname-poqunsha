@@ -92,6 +92,15 @@ const characters = {
 		img: "extension/破群杀/image/xiaokong.jpg",
 		isZhugong: true,
 	},
+	poqun_gule: {
+		sex: "male",
+		group: "wei",
+		hp: 3,
+		maxHp: 3,
+		hujia: 0,
+		skills: ["poqun_guangyin", "poqun_jidou", "poqun_zhechong"],
+		img: "extension/破群杀/image/gule.gif",
+	},
 };
 
 export default characters;

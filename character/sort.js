@@ -4,6 +4,7 @@ const characterSort = {
 		// 魏
 		"poqun_lingxin",
 		"poqun_fengjie",
+		"poqun_gule",
 		// 蜀
 		"poqun_xiaokong",
 		"poqun_dadi",
