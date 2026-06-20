@@ -63,6 +63,17 @@ const translates = {
 	poqun_lingfeng: "飒风",
 	poqun_lingfeng_info:
 		"当你因翻面跳过回合后，你可以摸两张牌并额外进行一个出牌阶段，此阶段使用的【杀】无距离限制且不可被闪避。",
+
+	poqun_maolaoshi: "毛老师",
+	poqun_zhiwei: "知味",
+	poqun_zhiwei_info:
+		"出牌阶段限一次，你可以将一张♥手牌当作【桃】使用，或将一张♠手牌当作【酒】使用。",
+	poqun_yunchou: "运筹",
+	poqun_yunchou_info:
+		"出牌阶段限一次，你可以将1张手牌展示后置于牌堆顶，然后展示牌堆底的1张牌获得之。若这两张牌的花色相同，你可以摸1张牌并重复此操作。",
+	poqun_fengchun: "逢春",
+	poqun_fengchun_info:
+		"限定技，当你进入濒死状态时，你可以弃置所有手牌，并展示牌堆顶两张牌，然后回复至X（X为其中的红牌数量，且至少为1），并获得其他黑色牌。",
 };
 
 export default translates;
