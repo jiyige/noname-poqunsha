@@ -1443,6 +1443,266 @@ const skills = {
 		},
 		ai: { threaten: 0.5 },
 	},
+	poqun_lanxian: {
+		skill_id: "poqun_lanxian",
+		group: ["poqun_lanxian_draw"],
+		trigger: { global: "phaseZhunbei" },
+		forced: false,
+		filter: function (event, player) {
+			return event.player !== player && player.countCards("he") > 0;
+		},
+		content: async function (event, trigger, player) {
+			var target = trigger.player;
+			var result = await player
+				.chooseCard("he", [1, 2], "【揽贤】将至多两张牌置于牌堆顶")
+				.set("ai", function (card) {
+					return 5 - get.value(card);
+				})
+				.forResult();
+
+			if (!result.bool || !result.cards || !result.cards.length) return;
+
+			var count = result.cards.length;
+			for (var i = 0; i < count; i++) {
+				player.loseToDiscardpile(result.cards[i], ui.cardPile, "visible", "insert").log = false;
+			}
+			game.log(player, "将" + count + "张牌置于牌堆顶");
+
+			if (count === 2) {
+				player.storage.poqun_lanxian_target = target;
+			}
+		},
+		subSkill: {
+			draw: {
+				skill_id: "poqun_lanxian_draw",
+				trigger: { global: "phaseAfter" },
+				forced: true,
+				popup: false,
+				filter: function (event, player) {
+					return (
+						player.storage.poqun_lanxian_target &&
+						event.player === player.storage.poqun_lanxian_target
+					);
+				},
+				content: async function (event, trigger, player) {
+					var target = player.storage.poqun_lanxian_target;
+					player.storage.poqun_lanxian_target = null;
+					await player.draw();
+					await target.draw();
+					game.log(player, "和", target, "各摸一张牌");
+				},
+				sub: true,
+				sourceSkill: "poqun_lanxian",
+			},
+		},
+	},
+	poqun_juyi: {
+		skill_id: "poqun_juyi",
+		enable: "phaseUse",
+		group: ["poqun_juyi_reset"],
+		filter: function (event, player) {
+			var maxUse =
+				player.storage.poqun_shengwei_mods && player.storage.poqun_shengwei_mods.includes(2)
+					? 2
+					: 1;
+			if ((player.storage.poqun_juyi_count || 0) >= maxUse) return false;
+
+			var declared = player.storage.poqun_juyi_declared || [];
+			var allowBasic =
+				player.storage.poqun_shengwei_mods && player.storage.poqun_shengwei_mods.includes(3);
+			for (var i = 0; i < lib.inpile.length; i++) {
+				var name = lib.inpile[i];
+				if (declared.includes(name)) continue;
+				var type = get.type(name);
+				if (type === "trick" && get.subtype(name) !== "delay") {
+					var info = lib.card[name];
+					debugger;
+					if (
+						info &&
+						info.selectTarget !== -1 &&
+						!info.notarget &&
+						(!info.selectTarget || info.selectTarget === 1)
+					) {
+						return true;
+					}
+				}
+				if (allowBasic && type === "basic" && name !== "shan") return true;
+			}
+			return false;
+		},
+		content: async function (event, trigger, player) {
+			var declared = player.storage.poqun_juyi_declared || [];
+			var allowBasic =
+				player.storage.poqun_shengwei_mods && player.storage.poqun_shengwei_mods.includes(3);
+			var list = [];
+
+			for (var i = 0; i < lib.inpile.length; i++) {
+				var name = lib.inpile[i];
+				if (declared.includes(name)) continue;
+				var type = get.type(name);
+				if (type === "trick" && get.subtype(name) !== "delay") {
+					var info = lib.card[name];
+					if (
+						info &&
+						info.selectTarget !== -1 &&
+						!info.notarget &&
+						(!info.selectTarget || info.selectTarget === 1)
+					) {
+						list.push(["锦囊", "", name]);
+					}
+				}
+				if (allowBasic && type === "basic" && name !== "shan") {
+					list.push(["基本", "", name]);
+				}
+			}
+
+			if (!list.length) return;
+
+			var result = await player
+				.chooseButton(["【聚义】声明一张牌名", [list, "vcard"]], true)
+				.set("ai", function (button) {
+					var name = button.link[2];
+					if (name === "guohe" || name === "shunshou") return 5;
+					if (name === "huogong") return 3;
+					if (name === "sha") return 2;
+					if (name === "tao" || name === "jiu") return 1;
+					return 0.5;
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			var cardName = result.links[0][2];
+
+			// 记录已声明牌名
+			if (!player.storage.poqun_juyi_declared) player.storage.poqun_juyi_declared = [];
+			player.storage.poqun_juyi_declared.push(cardName);
+			player.storage.poqun_juyi_count = (player.storage.poqun_juyi_count || 0) + 1;
+
+			game.log(player, "声明了【" + get.translation(cardName) + "】");
+
+			// 依次询问响应
+			var responders = 0;
+			var nonResponders = 0;
+			var otherPlayers = game.filterPlayer(function (current) {
+				return current !== player && current.isAlive();
+			});
+
+			for (var i = 0; i < otherPlayers.length; i++) {
+				var current = otherPlayers[i];
+				var response = await current
+					.chooseBool(
+						"【聚义】是否响应" +
+							get.translation(player) +
+							"声明的【" +
+							get.translation(cardName) +
+							"】？",
+					)
+					.set("ai", function () {
+						return get.attitude(current, player) > 0;
+					})
+					.forResult();
+
+				if (response.bool) {
+					responders++;
+					current.popup("响应");
+					game.log(current, "响应了【聚义】");
+				} else {
+					nonResponders++;
+					current.popup("拒绝");
+					game.log(current, "未响应【聚义】");
+				}
+			}
+
+			// 判定结果
+			var condition;
+			if (player.storage.poqun_shengwei_mods && player.storage.poqun_shengwei_mods.includes(1)) {
+				var shuCount = game.filterPlayer(function (current) {
+					return current.group === "shu" && current.isAlive();
+				}).length;
+				condition = responders + shuCount > nonResponders;
+			} else {
+				condition = responders >= nonResponders;
+			}
+
+			if (condition) {
+				game.log("【聚义】响应成功！");
+				await player.chooseUseTarget({ name: cardName, isCard: true }, true, false);
+			} else {
+				game.log("【聚义】响应失败");
+			}
+		},
+		subSkill: {
+			reset: {
+				skill_id: "poqun_juyi_reset",
+				trigger: { player: "phaseUseBegin" },
+				forced: true,
+				popup: false,
+				silent: true,
+				content: function (event, trigger, player) {
+					player.storage.poqun_juyi_declared = [];
+					player.storage.poqun_juyi_count = 0;
+				},
+				sub: true,
+				sourceSkill: "poqun_juyi",
+			},
+		},
+		ai: {
+			order: 6,
+			result: { player: 1 },
+		},
+	},
+	poqun_shengwei: {
+		skill_id: "poqun_shengwei",
+		zhuSkill: true,
+		trigger: { player: "phaseZhunbei" },
+		forced: false,
+		frequent: true,
+		filter: function (event, player) {
+			return !player.storage.poqun_shengwei_mods || player.storage.poqun_shengwei_mods.length < 3;
+		},
+		content: async function (event, trigger, player) {
+			if (!player.storage.poqun_shengwei_mods) player.storage.poqun_shengwei_mods = [];
+
+			var choiceList = [];
+			var mods = [];
+
+			if (!player.storage.poqun_shengwei_mods.includes(1)) {
+				choiceList.push("响应人数+蜀势力数 > 未响应数");
+				mods.push(1);
+			}
+			if (!player.storage.poqun_shengwei_mods.includes(2)) {
+				choiceList.push("聚义改为出牌阶段限两次");
+				mods.push(2);
+			}
+			if (!player.storage.poqun_shengwei_mods.includes(3)) {
+				choiceList.push("可声明基本牌（除闪外）");
+				mods.push(3);
+			}
+
+			choiceList.push("不修改");
+
+			var result = await player
+				.chooseControl()
+				.set("choiceList", choiceList)
+				.set("prompt", "【声威】选择一项修改【聚义】")
+				.set("ai", function () {
+					if (mods.includes(2)) return mods.indexOf(2);
+					if (mods.includes(1)) return mods.indexOf(1);
+					return choiceList.length - 1;
+				})
+				.forResult();
+
+			if (result.index >= mods.length) return;
+
+			var mod = mods[result.index];
+			player.storage.poqun_shengwei_mods.push(mod);
+			game.log(player, "【声威】升级了【聚义】");
+		},
+		ai: {
+			threaten: 1.5,
+		},
+	},
 };
 
 export default skills;

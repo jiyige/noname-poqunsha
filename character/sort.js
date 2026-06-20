@@ -5,6 +5,7 @@ const characterSort = {
 		"poqun_lingxin",
 		"poqun_fengjie",
 		// 蜀
+		"poqun_xiaokong",
 		"poqun_dadi",
 		"poqun_maolaoshi",
 		// 吴

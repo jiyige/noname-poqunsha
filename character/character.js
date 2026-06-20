@@ -52,6 +52,7 @@ const characters = {
 	// 	hujia: 0,
 	// 	skills: ["poqun_yucheng", "poqun_quanduan", "poqun_yuefeng"],
 	// 	img: "extension/破群杀/image/peipei.jpg",
+	//  isZhugong: true,
 	// },
 	poqun_shaoye: {
 		sex: "male",
@@ -61,6 +62,7 @@ const characters = {
 		hujia: 0,
 		skills: ["poqun_yucheng", "poqun_quanduan", "poqun_quce"],
 		img: "extension/破群杀/image/shaoye.jpg",
+		isZhugong: true,
 	},
 	poqun_fengjie: {
 		sex: "male",
@@ -79,6 +81,16 @@ const characters = {
 		hujia: 0,
 		skills: ["poqun_zhiwei", "poqun_yunchou", "poqun_fengchun"],
 		img: "extension/破群杀/image/maolaoshi.jpg",
+	},
+	poqun_xiaokong: {
+		sex: "male",
+		group: "shu",
+		hp: 3,
+		maxHp: 3,
+		hujia: 0,
+		skills: ["poqun_lanxian", "poqun_juyi", "poqun_shengwei"],
+		img: "extension/破群杀/image/xiaokong.jpg",
+		isZhugong: true,
 	},
 };
 
