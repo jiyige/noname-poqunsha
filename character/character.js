@@ -14,7 +14,7 @@ const characters = {
 		hp: 3,
 		maxHp: 3,
 		hujia: 0,
-		skills: ["tuhao", "ziyi", "guangming"],
+		skills: ["poqun_leshi", "poqun_ziyu", "poqun_quuan"],
 		img: "extension/破群杀/image/xiaoche.jpg",
 	},
 	poqun_xiaoqi: {
@@ -23,7 +23,7 @@ const characters = {
 		hp: 4,
 		maxHp: 4,
 		hujia: 0,
-		skills: ["maihao", "shenyin"],
+		skills: ["poqun_zhuanjie", "poqun_qianzong"],
 		img: "extension/破群杀/image/xiaoqi.jpg",
 	},
 	poqun_lingxin: {

@@ -265,12 +265,12 @@ const skills = {
 			},
 		},
 	},
-	tuhao: {
-		skill_id: "tuhao",
-		group: ["tuhao_grant"],
+	poqun_leshi: {
+		skill_id: "poqun_leshi",
+		group: ["poqun_leshi_grant"],
 		subSkill: {
 			grant: {
-				skill_id: "tuhao_grant",
+				skill_id: "poqun_leshi_grant",
 				trigger: { global: "phaseUseBegin" },
 				forced: false,
 				frequent: true,
@@ -279,19 +279,19 @@ const skills = {
 					return event.player != player && player.isAlive();
 				},
 				content: async function (event, trigger, player) {
-					trigger.player.addTempSkill("tuhao_request", { player: "phaseAfter" });
-					trigger.player.addTempSkill("tuhao_dtrack", { player: "phaseAfter" });
-					trigger.player.addTempSkill("tuhao_rtrack", { player: "phaseAfter" });
-					trigger.player.addTempSkill("tuhao_settle", { player: "phaseAfter" });
+					trigger.player.addTempSkill("poqun_leshi_request", { player: "phaseAfter" });
+					trigger.player.addTempSkill("poqun_leshi_dtrack", { player: "phaseAfter" });
+					trigger.player.addTempSkill("poqun_leshi_rtrack", { player: "phaseAfter" });
+					trigger.player.addTempSkill("poqun_leshi_settle", { player: "phaseAfter" });
 
 					// 初始化 storage
-					trigger.player.storage.tuhao_xiaoch = null;
-					trigger.player.storage.tuhao_dealt = false;
-					trigger.player.storage.tuhao_recovered = false;
+					trigger.player.storage.poqun_leshi_xiaoch = null;
+					trigger.player.storage.poqun_leshi_dealt = false;
+					trigger.player.storage.poqun_leshi_recovered = false;
 				},
 			},
 			request: {
-				skill_id: "tuhao_request",
+				skill_id: "poqun_leshi_request",
 				enable: "phaseUse",
 				usable: 1,
 				filterCard: function () {
@@ -300,7 +300,7 @@ const skills = {
 				selectCard: 0,
 				filter: function (event, player) {
 					var xiaoch = game.findPlayer(function (p) {
-						return p.hasSkill("tuhao");
+						return p.hasSkill("poqun_leshi");
 					});
 					if (!xiaoch || !xiaoch.isAlive()) return false;
 					var canUseSha =
@@ -314,7 +314,7 @@ const skills = {
 				content: async function (event) {
 					var player = event.player;
 					var xiaoch = game.findPlayer(function (p) {
-						return p.hasSkill("tuhao");
+						return p.hasSkill("poqun_leshi");
 					});
 					if (!xiaoch || xiaoch.isDead()) return;
 
@@ -372,7 +372,7 @@ const skills = {
 
 					if (!buttonResult.bool || !buttonResult.links) return;
 					var selectedName = buttonResult.links[0][2];
-					await player.addSkill("tuhao_limit");
+					await player.addSkill("poqun_leshi_limit");
 					game.log(player, "发动了【土豪】，请求使用【", selectedName, "】");
 
 					var target = player;
@@ -454,8 +454,8 @@ const skills = {
 						return;
 					}
 
-					player.storage.tuhao_xiaoch = xiaoch;
-					await player.addSkill("tuhao_settle");
+					player.storage.poqun_leshi_xiaoch = xiaoch;
+					await player.addSkill("poqun_leshi_settle");
 
 					var givenCard = cardResult.cards[0];
 					await xiaoch.give(givenCard, player);
@@ -466,7 +466,7 @@ const skills = {
 					result: {
 						player: function (player) {
 							var xiaoch = game.findPlayer(function (p) {
-								return p.hasSkill("tuhao");
+								return p.hasSkill("poqun_leshi");
 							});
 							if (!xiaoch || !xiaoch.isAlive()) return -2;
 							if (get.attitude(player, xiaoch) <= 0) return -2;
@@ -508,21 +508,21 @@ const skills = {
 				},
 			},
 			settle: {
-				skill_id: "tuhao_settle",
+				skill_id: "poqun_leshi_settle",
 				charlotte: true,
 				trigger: { player: "phaseUseEnd" },
 				forced: true,
 				popup: false,
 				filter: function (event, player) {
-					return player.storage.tuhao_xiaoch && player.storage.tuhao_xiaoch.isAlive();
+					return player.storage.poqun_leshi_xiaoch && player.storage.poqun_leshi_xiaoch.isAlive();
 				},
 				content: async function (event, trigger, player) {
-					var xiaoch = player.storage.tuhao_xiaoch;
-					if (player.storage.tuhao_dealt) {
+					var xiaoch = player.storage.poqun_leshi_xiaoch;
+					if (player.storage.poqun_leshi_dealt) {
 						await xiaoch.draw();
 						game.log("【土豪】", player, "于此阶段造成伤害，", xiaoch, "摸一张牌");
 					}
-					if (player.storage.tuhao_recovered && player.getEquip(2) !== null) {
+					if (player.storage.poqun_leshi_recovered && player.getEquip(2) !== null) {
 						game.log("【土豪】", player, "于此阶段回复体力，", xiaoch, "获得", player, "的防具");
 						var card = player.getEquip(2);
 						if (xiaoch.getEquip(2)) {
@@ -531,35 +531,35 @@ const skills = {
 						player.$give(card, xiaoch);
 						await xiaoch.equip(card);
 					}
-					player.storage.tuhao_xiaoch = null;
-					player.storage.tuhao_dealt = false;
-					player.storage.tuhao_recovered = false;
+					player.storage.poqun_leshi_xiaoch = null;
+					player.storage.poqun_leshi_dealt = false;
+					player.storage.poqun_leshi_recovered = false;
 				},
 			},
 			dtrack: {
-				skill_id: "tuhao_dtrack",
+				skill_id: "poqun_leshi_dtrack",
 				charlotte: true,
 				trigger: { source: "damageAfter" },
 				forced: true,
 				popup: false,
 				silent: true,
 				content: async function (event, trigger, player) {
-					player.storage.tuhao_dealt = true;
+					player.storage.poqun_leshi_dealt = true;
 				},
 			},
 			rtrack: {
-				skill_id: "tuhao_rtrack",
+				skill_id: "poqun_leshi_rtrack",
 				charlotte: true,
 				trigger: { player: "recoverAfter" },
 				forced: true,
 				popup: false,
 				silent: true,
 				content: async function (event, trigger, player) {
-					player.storage.tuhao_recovered = true;
+					player.storage.poqun_leshi_recovered = true;
 				},
 			},
 			limit: {
-				skill_id: "tuhao_limit",
+				skill_id: "poqun_leshi_limit",
 				charlotte: true,
 				mod: {
 					maxHandcard: function (player, num) {
@@ -570,8 +570,8 @@ const skills = {
 			},
 		},
 	},
-	ziyi: {
-		skill_id: "ziyi",
+	poqun_ziyu: {
+		skill_id: "poqun_ziyu",
 		trigger: {
 			player: "damageBegin1",
 		},
@@ -583,7 +583,7 @@ const skills = {
 		},
 		content: async function (event, trigger, player) {
 			var xiaoch = game.findPlayer(function (p) {
-				return p.hasSkill("tuhao");
+				return p.hasSkill("poqun_leshi");
 			});
 			if (!xiaoch || xiaoch.isDead()) return;
 
@@ -653,11 +653,11 @@ const skills = {
 			},
 		},
 	},
-	guangming: {
-		skill_id: "guangming",
+	poqun_quuan: {
+		skill_id: "poqun_quuan",
 		forced: true,
 		locked: true,
-		group: ["guangming_baiyin", "guangming_recover"],
+		group: ["poqun_quuan_baiyin", "poqun_quuan_recover"],
 		init: function (player, skill) {
 			player.addExtraEquip(skill, "baiyin", true, function (player2) {
 				return player2.hasEmptySlot(2) && lib.card.baiyin;
@@ -668,46 +668,46 @@ const skills = {
 		},
 		subSkill: {
 			baiyin: {
-				skill_id: "guangming_baiyin",
+				skill_id: "poqun_quuan_baiyin",
 				equipSkill: true,
 				noHidden: true,
 				inherit: "baiyin_skill",
-				sourceSkill: "guangming",
+				sourceSkill: "poqun_quuan",
 				filter: function (event, player) {
 					if (!player.hasEmptySlot(2)) return false;
 					return true;
 				},
 			},
 			recover: {
-				skill_id: "guangming_recover",
+				skill_id: "poqun_quuan_recover",
 				trigger: { player: "equipAfter" },
 				forced: true,
 				popup: false,
 				filter: function (event, player) {
 					if (!event.card || get.subtype(event.card) !== "equip2") return false;
-					if (!player.hasSkill("guangming")) return false;
+					if (!player.hasSkill("poqun_quuan")) return false;
 					return player.isDamaged();
 				},
 				content: async function (event, trigger, player) {
 					await player.recover();
-					game.log(player, "【光明】白银狮子被替换，回复1点体力");
+					game.log(player, "【驱暗】白银狮子被替换，回复1点体力");
 				},
 			},
 		},
 	},
-	maihao: {
-		skill_id: "maihao",
+	poqun_zhuanjie: {
+		skill_id: "poqun_zhuanjie",
 		trigger: { global: "dieAfter" },
 		forced: false,
 		frequent: true,
 		popup: false,
 		filter: function (event, player) {
 			var round = game.roundNumber;
-			return player.storage.maihao !== round && event.player !== player;
+			return player.storage.poqun_zhuanjie !== round && event.player !== player;
 		},
 		content: async function (event, trigger, player) {
 			var result = await player
-				.chooseBool("是否发动【买号】，将武将替换为" + get.translation(trigger.player) + "？")
+				.chooseBool("是否发动【转劫】，将武将替换为" + get.translation(trigger.player) + "？")
 				.set("ai", function () {
 					var dead = trigger.player;
 					var oldName = player.name1 || player.name;
@@ -736,7 +736,7 @@ const skills = {
 			if (!result.bool) return;
 
 			// 保存需要保留的数据
-			var maihaoStorage = player.storage.maihao;
+			var poqun_zhuanjieStorage = player.storage.poqun_zhuanjie;
 			var keepName = player.name;
 
 			// 替换武将
@@ -748,8 +748,8 @@ const skills = {
 			player.node.name.innerHTML = get.translation(keepName);
 
 			// 补回保留的技能
-			player.addSkill("maihao");
-			player.storage.maihao = maihaoStorage;
+			player.addSkill("poqun_zhuanjie");
+			player.storage.poqun_zhuanjie = poqun_zhuanjieStorage;
 
 			// 弃置区域内的全部牌
 			var cards = player.getCards("hej");
@@ -762,14 +762,14 @@ const skills = {
 
 			game.log(
 				player,
-				"发动【买号】，替换为",
+				"发动【转劫】，替换为",
 				trigger.player,
 				"，弃置所有牌并摸" + player.maxHp + "张牌",
 			);
 		},
 	},
-	shenyin: {
-		skill_id: "shenyin",
+	poqun_qianzong: {
+		skill_id: "poqun_qianzong",
 		forced: true,
 		locked: true,
 		mod: {
