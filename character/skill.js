@@ -273,7 +273,7 @@ const skills = {
 				skill_id: "poqun_leshi_grant",
 				trigger: { global: "phaseUseBegin" },
 				forced: false,
-				frequent: true,
+				direct: true,
 				popup: false,
 				filter: function (event, player) {
 					return event.player != player && player.isAlive();
@@ -576,7 +576,7 @@ const skills = {
 			player: "damageBegin1",
 		},
 		forced: false,
-		frequent: true,
+		direct: true,
 		popup: false,
 		filter: function (event, player) {
 			return event.card && player.countCards("h") > 0;
@@ -699,7 +699,7 @@ const skills = {
 		skill_id: "poqun_zhuanjie",
 		trigger: { global: "dieAfter" },
 		forced: false,
-		frequent: true,
+		direct: true,
 		popup: false,
 		filter: function (event, player) {
 			var round = game.roundNumber;
@@ -799,7 +799,7 @@ const skills = {
 		trigger: { global: "useCardToPlayer" },
 		trigger: { player: "damageEnd" },
 		forced: false,
-		frequent: true,
+		direct: true,
 		content: async function (event, trigger, player) {
 			var result = await player
 				.chooseTarget("【回锋】选择一名其他角色", function (card, player, target) {
@@ -981,7 +981,7 @@ const skills = {
 		skill_id: "poqun_yucheng",
 		trigger: { player: "phaseEnd" },
 		forced: false,
-		frequent: true,
+		direct: true,
 		filter: function (event, player) {
 			return game.hasPlayer(function (current) {
 				return current !== player && current.countCards("h") > 0;
@@ -1038,7 +1038,7 @@ const skills = {
 		skill_id: "poqun_quanduan",
 		trigger: { player: "phaseDrawBegin" },
 		forced: false,
-		frequent: true,
+		direct: true,
 		filter: function (event, player) {
 			return player.countCards("h") > 0;
 		},
@@ -1099,7 +1099,7 @@ const skills = {
 		zhuSkill: true,
 		trigger: { global: "roundStart" },
 		forced: false,
-		frequent: true,
+		direct: true,
 		filter: function (event, player) {
 			return player.isAlive();
 		},
@@ -1212,7 +1212,7 @@ const skills = {
 		skill_id: "poqun_fugui",
 		trigger: { player: "damageBegin2" },
 		forced: false,
-		frequent: true,
+		direct: true,
 		mod: {
 			targetEnabled: function (card, player, target) {
 				if (target.isTurnedOver() && get.type(card) === "delay") return false;
@@ -1656,7 +1656,7 @@ const skills = {
 		zhuSkill: true,
 		trigger: { player: "phaseZhunbei" },
 		forced: false,
-		frequent: true,
+		direct: true,
 		filter: function (event, player) {
 			return !player.storage.poqun_shengwei_mods || player.storage.poqun_shengwei_mods.length < 3;
 		},
@@ -1712,7 +1712,7 @@ const skills = {
 				skill_id: "poqun_guangyin_judge",
 				trigger: { global: "judge" },
 				forced: false,
-				frequent: true,
+				direct: true,
 				filter: function (event, player) {
 					return ui.cardPile && ui.cardPile.childNodes.length >= 2;
 				},
