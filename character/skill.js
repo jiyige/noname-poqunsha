@@ -1,29 +1,28 @@
 const skills = {
 	poqun_rixun: {
 		skill_id: "poqun_rixun",
-		group: ["poqun_rixun_effect"],
 		subSkill: {
-			effect: {
-				skill_id: "poqun_rixun_effect",
-				trigger: { global: "phaseBegin" },
-				forced: true,
-				filter: function (event, player) {
-					return event.player.storage.poqun_rixun_mark == player && player.isAlive();
+			mark: {
+				skill_id: "poqun_rixun_mark",
+				charlotte: true,
+				mark: true,
+				marktext: "询",
+				intro: {
+					content: "回合开始时须选择一项：1.跳过摸牌，杀伤害+1；2.跳过出牌，回复体力",
 				},
+				trigger: { player: "phaseBegin" },
+				forced: true,
 				content: async function (event, trigger, player) {
-					var target = trigger.player;
-					target.storage.poqun_rixun_mark = false;
-					target.unmarkSkill("poqun_rixun_mark");
+					player.removeSkill("poqun_rixun_mark");
 
-					var result = await target
+					var result = await player
 						.chooseControlList([
 							"跳过摸牌阶段，本回合使用【杀】伤害+1",
 							"跳过出牌阶段，回复1点体力",
 						])
 						.set("forced", true)
 						.set("ai", function () {
-							var self = trigger.player;
-							var judges = self.getCards("j");
+							var judges = player.getCards("j");
 							var hasLebu = false;
 							var hasBingliang = false;
 							for (var i = 0; i < judges.length; i++) {
@@ -35,32 +34,34 @@ const skills = {
 							// 有兵粮寸断 → 选杀+1（兵跳了摸牌阶段，选1等于白赚）
 							if (hasBingliang) return 0;
 							// 有杀且有可攻击敌人 → 选杀+1
-							if (self.countCards("h", { name: "sha" }) > 0) {
+							if (player.countCards("h", { name: "sha" }) > 0) {
 								var enemies = game.filterPlayer(function (current) {
 									return (
-										current != self && get.attitude(self, current) < 0 && self.inRange(current)
+										current != player &&
+										get.attitude(player, current) < 0 &&
+										player.inRange(current)
 									);
 								});
 								if (enemies.length > 0) return 0;
 							}
 							// 残血 → 选回血
-							if (self.hp < self.maxHp) return 1;
+							if (player.hp < player.maxHp) return 1;
 							// 默认 → 选杀+1
 							return 0;
 						})
 						.forResult();
 					game.log(
 						"【日询】",
-						target,
+						player,
 						"选择了选项：",
 						result.index == 0 ? "跳过摸牌，杀伤害+1" : "跳过出牌，回复体力",
 					);
 					if (result.index == 0) {
-						target.skip("phaseDraw");
-						target.addTempSkill("poqun_rixun_sha_bonus", { player: "phaseAfter" });
+						player.skip("phaseDraw");
+						player.addTempSkill("poqun_rixun_sha_bonus", { player: "phaseAfter" });
 					} else {
-						target.skip("phaseUse");
-						await target.recover();
+						player.skip("phaseUse");
+						await player.recover();
 					}
 				},
 				sub: true,
@@ -94,8 +95,7 @@ const skills = {
 			var target = event.target;
 			game.log("【日询】", player, "将", event.cards, "交给", target);
 			await player.give(event.cards, target);
-			target.storage.poqun_rixun_mark = player;
-			target.markSkill("poqun_rixun_mark");
+			target.addSkill("poqun_rixun_mark");
 		},
 		ai: {
 			order: 6,
@@ -1135,7 +1135,6 @@ const skills = {
 			// 设置新目标并加标记
 			var newTarget = result.targets[0];
 			newTarget.addTempSkill("poqun_quce_mark", "roundAfter");
-			newTarget.markSkill("poqun_quce_mark");
 
 			player.addTempSkill("poqun_quce_sha_bonus", "roundAfter");
 			player.addTempSkill("poqun_quce_phase_reset", "roundAfter");
@@ -1145,6 +1144,7 @@ const skills = {
 			mark: {
 				skill_id: "poqun_quce_mark",
 				charlotte: true,
+				mark: true,
 				marktext: "策",
 				intro: {
 					content: "被指定为【驱策】的目标",
