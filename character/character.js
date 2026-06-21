@@ -101,6 +101,15 @@ const characters = {
 		skills: ["poqun_guangyin", "poqun_jidou", "poqun_zhechong"],
 		img: "extension/破群杀/image/gule.gif",
 	},
+	poqun_feichi: {
+		sex: "male",
+		group: "qun",
+		hp: 3,
+		maxHp: 3,
+		hujia: 0,
+		skills: ["poqun_yiyu", "poqun_wangfu"],
+		img: "extension/破群杀/image/feichi.jpg",
+	},
 };
 
 export default characters;

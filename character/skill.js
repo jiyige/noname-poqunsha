@@ -2013,6 +2013,253 @@ const skills = {
 			},
 		},
 	},
+	poqun_yiyu: {
+		skill_id: "poqun_yiyu",
+		enable: "phaseUse",
+		usable: 1,
+		filter: function (event, player) {
+			return game.hasPlayer(function (current) {
+				return current !== player && current.isAlive();
+			});
+		},
+		content: async function (event, trigger, player) {
+			// 1. 取牌堆顶一张牌，暗置查看
+			var cards = get.cards(1);
+			if (!cards || !cards.length) return;
+			var topCard = cards[0];
+
+			player.viewCards("【疑谕】牌堆顶的牌", [topCard]);
+
+			var realSuit = get.suit(topCard);
+			var realNumber = get.number(topCard);
+
+			// 2. 声明花色
+			var reverseSuitMap = { "♠": "spade", "♥": "heart", "♣": "club", "♦": "diamond" };
+			var suitDisplay = ["♠", "♥", "♣", "♦"];
+			var suitMap = { spade: "♠", heart: "♥", club: "♣", diamond: "♦" };
+
+			var suitResult = await player
+				.chooseControl(suitDisplay)
+				.set("prompt", "【疑谕】声明花色")
+				.set("ai", function () {
+					return suitMap[realSuit];
+				})
+				.forResult();
+
+			var declaredSuit = reverseSuitMap[suitResult.control];
+
+			// 3. 声明点数
+			var numberNames = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+			var numberMap = {};
+			for (var i = 0; i < 13; i++) {
+				numberMap[numberNames[i]] = i + 1;
+			}
+
+			var numberResult = await player
+				.chooseControl(numberNames)
+				.set("prompt", "【疑谕】声明点数")
+				.set("ai", function () {
+					return numberNames[realNumber - 1];
+				})
+				.forResult();
+
+			var declaredNumber = numberMap[numberResult.control];
+
+			game.log(player, "声明：" + (suitMap[declaredSuit] || declaredSuit) + declaredNumber);
+
+			// 4. 其他角色依次质疑
+			var doubters = [];
+			var nonDoubters = [];
+			var others = game.filterPlayer(function (current) {
+				return current !== player && current.isAlive();
+			});
+
+			for (var i = 0; i < others.length; i++) {
+				var current = others[i];
+				var doubtResult = await current
+					.chooseBool(
+						"【疑谕】是否质疑" +
+							get.translation(player) +
+							"的声明？（" +
+							(suitMap[declaredSuit] || declaredSuit) +
+							declaredNumber +
+							"）",
+					)
+					.set("ai", function () {
+						var att = get.attitude(current, player);
+						// 队友不质疑
+						if (att >= 0) return false;
+						// 敌人：手牌中匹配声明的越多，越想质疑避免被禁
+						var myHand = current.getCards("h");
+						var matchCount = 0;
+						for (var j = 0; j < myHand.length; j++) {
+							if (
+								get.suit(myHand[j]) === declaredSuit ||
+								get.number(myHand[j]) === declaredNumber
+							) {
+								matchCount++;
+							}
+						}
+						return matchCount >= 2;
+					})
+					.forResult();
+
+				if (doubtResult.bool) {
+					doubters.push(current);
+					current.popup("质疑");
+					game.log(current, "选择质疑");
+				} else {
+					nonDoubters.push(current);
+					current.popup("不质疑");
+					game.log(current, "选择不质疑");
+				}
+			}
+
+			// 5. 展示该牌
+			await player.showCards(topCard, "【疑谕】展示");
+
+			var isCorrect = declaredSuit === realSuit && declaredNumber === realNumber;
+
+			// 6. 结算结果
+			if (doubters.length === 0) {
+				game.log("无人质疑");
+				for (var i = 0; i < nonDoubters.length; i++) {
+					nonDoubters[i].addSkill("poqun_wangfu_mark");
+					nonDoubters[i].storage.poqun_wangfu_suit = declaredSuit;
+					nonDoubters[i].storage.poqun_wangfu_number = declaredNumber;
+					game.log(nonDoubters[i], "获得“罔”");
+				}
+			} else if (isCorrect) {
+				game.log("声明正确，质疑者获得“罔”");
+				for (var i = 0; i < doubters.length; i++) {
+					doubters[i].addSkill("poqun_wangfu_mark");
+					doubters[i].storage.poqun_wangfu_suit = declaredSuit;
+					doubters[i].storage.poqun_wangfu_number = declaredNumber;
+				}
+			} else {
+				game.log("声明错误，质疑者摸牌");
+				for (var i = 0; i < doubters.length; i++) {
+					await doubters[i].draw();
+				}
+			}
+
+			// 获得"罔"的角色数，你摸X张牌
+			var gotWang = false;
+			if (doubters.length === 0) {
+				gotWang = nonDoubters.length > 0;
+			} else if (isCorrect) {
+				gotWang = doubters.length > 0;
+			}
+			if (gotWang) {
+				await player.draw();
+				game.log(player, '因"罔"摸了一张牌');
+			}
+		},
+		ai: {
+			order: 5,
+			result: { player: 1 },
+		},
+	},
+	poqun_wangfu: {
+		skill_id: "poqun_wangfu",
+		group: ["poqun_wangfu_reset", "poqun_wangfu_die"],
+		subSkill: {
+			reset: {
+				skill_id: "poqun_wangfu_reset",
+				trigger: { player: "phaseZhunbei" },
+				forced: true,
+				locked: true,
+				content: function (event, trigger, player) {
+					game.filterPlayer(function (current) {
+						if (current.hasSkill("poqun_wangfu_mark")) {
+							current.removeSkill("poqun_wangfu_mark");
+							current.storage.poqun_wangfu_suit = null;
+							current.storage.poqun_wangfu_number = null;
+							game.log(current, '的"罔"被重置');
+						}
+					});
+				},
+				sub: true,
+				sourceSkill: "poqun_wangfu",
+			},
+			die: {
+				skill_id: "poqun_wangfu_die",
+				trigger: { player: "die" },
+				forced: true,
+				popup: false,
+				silent: true,
+				content: function (event, trigger, player) {
+					game.filterPlayer(function (current) {
+						if (current.hasSkill("poqun_wangfu_mark")) {
+							current.removeSkill("poqun_wangfu_mark");
+							current.storage.poqun_wangfu_suit = null;
+							current.storage.poqun_wangfu_number = null;
+						}
+					});
+				},
+				sub: true,
+				sourceSkill: "poqun_wangfu",
+			},
+			mark: {
+				skill_id: "poqun_wangfu_mark",
+				charlotte: true,
+				mark: true,
+				marktext: "罔",
+				intro: {
+					content: function (storage, player) {
+						var suit = player.storage.poqun_wangfu_suit;
+						var number = player.storage.poqun_wangfu_number;
+						if (!suit && !number) return "无限制";
+						var suitMap = { spade: "♠", heart: "♥", club: "♣", diamond: "♦" };
+						var parts = [];
+						if (suit) parts.push(suitMap[suit] || suit);
+						if (number) parts.push("点数" + number);
+						return "不能使用或打出" + parts.join("或") + "的牌";
+					},
+				},
+				mod: {
+					cardEnabled: function (card, player) {
+						if (
+							player.storage.poqun_wangfu_suit &&
+							get.suit(card) === player.storage.poqun_wangfu_suit
+						)
+							return false;
+						if (
+							player.storage.poqun_wangfu_number &&
+							get.number(card) === player.storage.poqun_wangfu_number
+						)
+							return false;
+					},
+					cardRespondable: function (card, player) {
+						if (
+							player.storage.poqun_wangfu_suit &&
+							get.suit(card) === player.storage.poqun_wangfu_suit
+						)
+							return false;
+						if (
+							player.storage.poqun_wangfu_number &&
+							get.number(card) === player.storage.poqun_wangfu_number
+						)
+							return false;
+					},
+					cardSavable: function (card, player) {
+						if (
+							player.storage.poqun_wangfu_suit &&
+							get.suit(card) === player.storage.poqun_wangfu_suit
+						)
+							return false;
+						if (
+							player.storage.poqun_wangfu_number &&
+							get.number(card) === player.storage.poqun_wangfu_number
+						)
+							return false;
+					},
+				},
+				sub: true,
+				sourceSkill: "poqun_wangfu",
+			},
+		},
+	},
 };
 
 export default skills;
