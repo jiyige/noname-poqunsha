@@ -2009,16 +2009,16 @@ const skills = {
 		skill_id: "poqun_yiyu",
 		enable: "phaseUse",
 		usable: 1,
+		group: ["poqun_yiyu_reset", "poqun_yiyu_die"],
 		filter: function (event, player) {
 			return game.hasPlayer(function (current) {
 				return current !== player && current.isAlive();
 			});
 		},
 		content: async function (event, trigger, player) {
-			// 1. 取牌堆顶一张牌，暗置查看
-			var cards = get.cards(1);
-			if (!cards || !cards.length) return;
-			var topCard = cards[0];
+			// 1. 直接看牌堆顶一张牌（不取出来）
+			var topCard = ui.cardPile.firstChild;
+			if (!topCard) return;
 
 			player.viewCards("【疑谕】牌堆顶的牌", [topCard]);
 
@@ -2061,7 +2061,6 @@ const skills = {
 
 			// 4. 其他角色依次质疑
 			var doubters = [];
-			var nonDoubters = [];
 			var others = game.filterPlayer(function (current) {
 				return current !== player && current.isAlive();
 			});
@@ -2101,7 +2100,6 @@ const skills = {
 					current.popup("质疑");
 					game.log(current, "选择质疑");
 				} else {
-					nonDoubters.push(current);
 					current.popup("不质疑");
 					game.log(current, "选择不质疑");
 				}
@@ -2112,15 +2110,17 @@ const skills = {
 
 			var isCorrect = declaredSuit === realSuit && declaredNumber === realNumber;
 
+			var gotWang = false;
+
 			// 6. 结算结果
 			if (doubters.length === 0) {
 				game.log("无人质疑");
-				for (var i = 0; i < nonDoubters.length; i++) {
-					nonDoubters[i].addSkill("poqun_wangfu_mark");
-					nonDoubters[i].storage.poqun_wangfu_suit = declaredSuit;
-					nonDoubters[i].storage.poqun_wangfu_number = declaredNumber;
-					game.log(nonDoubters[i], "获得“罔”");
-				}
+				await player.draw();
+				player.addSkill("poqun_wangfu_mark");
+				player.storage.poqun_wangfu_suit = declaredSuit;
+				player.storage.poqun_wangfu_number = declaredNumber;
+				game.log(player, "获得“罔”");
+				gotWang = true;
 			} else if (isCorrect) {
 				game.log("声明正确，质疑者获得“罔”");
 				for (var i = 0; i < doubters.length; i++) {
@@ -2128,6 +2128,7 @@ const skills = {
 					doubters[i].storage.poqun_wangfu_suit = declaredSuit;
 					doubters[i].storage.poqun_wangfu_number = declaredNumber;
 				}
+				gotWang = true;
 			} else {
 				game.log("声明错误，质疑者摸牌");
 				for (var i = 0; i < doubters.length; i++) {
@@ -2135,47 +2136,38 @@ const skills = {
 				}
 			}
 
-			// 获得"罔"的角色数，你摸X张牌
-			var gotWang = false;
-			if (doubters.length === 0) {
-				gotWang = nonDoubters.length > 0;
-			} else if (isCorrect) {
-				gotWang = doubters.length > 0;
-			}
 			if (gotWang) {
 				await player.draw();
 				game.log(player, '因"罔"摸了一张牌');
 			}
 		},
-		ai: {
-			order: 5,
-			result: { player: 1 },
-		},
-	},
-	poqun_wangfu: {
-		skill_id: "poqun_wangfu",
-		group: ["poqun_wangfu_reset", "poqun_wangfu_die"],
 		subSkill: {
+			// 准备阶段清除所有"罔"
 			reset: {
-				skill_id: "poqun_wangfu_reset",
+				skill_id: "poqun_yiyu_reset",
 				trigger: { player: "phaseZhunbei" },
 				forced: true,
 				locked: true,
 				content: function (event, trigger, player) {
+					var cleared = false;
 					game.filterPlayer(function (current) {
 						if (current.hasSkill("poqun_wangfu_mark")) {
 							current.removeSkill("poqun_wangfu_mark");
 							current.storage.poqun_wangfu_suit = null;
 							current.storage.poqun_wangfu_number = null;
-							game.log(current, '的"罔"被重置');
+							cleared = true;
 						}
 					});
+					if (cleared) {
+						game.log(player, '重置了所有角色的"罔"');
+					}
 				},
 				sub: true,
-				sourceSkill: "poqun_wangfu",
+				sourceSkill: "poqun_yiyu",
 			},
+			// 阵亡时清除所有"罔"
 			die: {
-				skill_id: "poqun_wangfu_die",
+				skill_id: "poqun_yiyu_die",
 				trigger: { player: "die" },
 				forced: true,
 				popup: false,
@@ -2190,8 +2182,17 @@ const skills = {
 					});
 				},
 				sub: true,
-				sourceSkill: "poqun_wangfu",
+				sourceSkill: "poqun_yiyu",
 			},
+		},
+		ai: {
+			order: 5,
+			result: { player: 1 },
+		},
+	},
+	poqun_wangfu: {
+		skill_id: "poqun_wangfu",
+		subSkill: {
 			mark: {
 				skill_id: "poqun_wangfu_mark",
 				charlotte: true,
