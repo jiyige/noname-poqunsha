@@ -110,6 +110,26 @@ const characters = {
 		skills: ["poqun_yiyu", "poqun_wangfu"],
 		img: "extension/破群杀/image/feichi.jpg",
 	},
+	poqun_yikun: {
+		sex: "male",
+		group: "shu",
+		hp: 4,
+		maxHp: 4,
+		hujia: 0,
+		skills: ["poqun_jihe", "poqun_chengyi"],
+		img: "extension/破群杀/image/yikun.jpg",
+		isZhugong: true,
+	},
+	poqun_xujiejie: {
+		sex: "male",
+		group: "wei",
+		hp: 3,
+		maxHp: 3,
+		hujia: 0,
+		skills: ["huituo", "mingjian", "xingshuai"],
+		img: "extension/破群杀/image/xujiejie.jpg",
+		isZhugong: true,
+	},
 };
 
 export default characters;

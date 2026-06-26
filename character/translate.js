@@ -104,6 +104,16 @@ const translates = {
 	poqun_wangfu: "妄缚",
 	poqun_wangfu_info:
 		"锁定技，准备阶段或你阵亡时，你重置全部的“罔”。拥有“罔”的角色不能使用或打出当前【疑谕】声明的花色或点数相同的牌。",
+
+	poqun_yikun: "一焜",
+	poqun_jihe: "稽核",
+	poqun_jihe_info:
+		"其他角色弃牌阶段结束时，你可以展示所有手牌，并获得其弃置的牌中任意一张与你手牌或装备区中点数相同的牌。",
+	poqun_chengyi: "承遗",
+	poqun_chengyi_info:
+		"主公技，一名蜀势力角色阵亡时，其可以选择其一个除限定技外的技能令你获得之。准备阶段，你可以选择一个以此法获得的技能于你的回合内使用。",
+
+	poqun_xujiejie: "徐姐姐",
 };
 
 export default translates;

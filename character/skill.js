@@ -735,21 +735,13 @@ const skills = {
 
 			if (!result.bool) return;
 
-			// 保存需要保留的数据
-			var poqun_zhuanjieStorage = player.storage.poqun_zhuanjie;
-			var keepName = player.name;
-
 			// 替换武将
 			player.reinit(player.name, trigger.player.name);
 
-			// 改回名字
-			player.name = keepName;
-			if (player.name1) player.name1 = keepName;
-			player.node.name.innerHTML = get.translation(keepName);
-
 			// 补回保留的技能
 			player.addSkill("poqun_zhuanjie");
-			player.storage.poqun_zhuanjie = poqun_zhuanjieStorage;
+			// 记录发动技能的回合数并且重置其他全部缓存
+			player.storage = { poqun_zhuanjie: game.roundNumber };
 
 			// 弃置区域内的全部牌
 			var cards = player.getCards("hej");
@@ -2257,6 +2249,204 @@ const skills = {
 				},
 				sub: true,
 				sourceSkill: "poqun_wangfu",
+			},
+		},
+	},
+	poqun_jihe: {
+		skill_id: "poqun_jihe",
+		trigger: { global: "phaseDiscardEnd" },
+		forced: false,
+		filter: function (event, player) {
+			if (event.player === player) return false;
+			if (!player.countCards("h")) return false;
+			var myNumbers = {};
+			player.getCards("he").forEach(function (card) {
+				myNumbers[get.number(card)] = true;
+			});
+			return event.player.hasHistory("lose", function (evt) {
+				if (evt.type !== "discard") return false;
+				return evt.cards.some(function (card) {
+					return card.parentNode === ui.discardPile && myNumbers[get.number(card)];
+				});
+			});
+		},
+		content: async function (event, trigger, player) {
+			// 展示所有手牌
+			var handCards = player.getCards("h");
+			if (handCards.length) {
+				await player.showCards(handCards, "【稽核】展示手牌");
+			}
+
+			// 获取弃置的牌中点数匹配的
+			var myNumbers = {};
+			player.getCards("he").forEach(function (card) {
+				myNumbers[get.number(card)] = true;
+			});
+
+			var validCards = [];
+			trigger.player.getHistory("lose", function (evt) {
+				if (evt.type === "discard") {
+					for (var i = 0; i < evt.cards.length; i++) {
+						var card = evt.cards[i];
+						if (card.parentNode === ui.discardPile && myNumbers[get.number(card)]) {
+							validCards.push(card);
+						}
+					}
+				}
+			});
+
+			if (!validCards.length) return;
+
+			var gainResult = await player
+				.chooseButton(["【稽核】获得一张点数相同的牌", validCards], true)
+				.set("ai", function (button) {
+					return get.value(button.link);
+				})
+				.forResult();
+
+			if (gainResult.bool && gainResult.links) {
+				await player.gain(gainResult.links[0], "gain2");
+				game.log(player, "获得了", gainResult.links[0]);
+			}
+		},
+		ai: {
+			threaten: 1,
+		},
+	},
+	poqun_chengyi: {
+		skill_id: "poqun_chengyi",
+		zhuSkill: true,
+		marktext: "继",
+		group: ["poqun_chengyi_gain", "poqun_chengyi_activate"],
+		intro: {
+			content: function (storage, player) {
+				var skills = player.storage.poqun_chengyi_skills || [];
+				if (!skills.length) return "未获得任何技能";
+				return (
+					"已获得：" +
+					skills
+						.map(function (s) {
+							return get.translation(s);
+						})
+						.join("、")
+				);
+			},
+		},
+		subSkill: {
+			// 蜀势力阵亡时获取技能
+			gain: {
+				skill_id: "poqun_chengyi_gain",
+				trigger: { global: "die" },
+				forced: false,
+				direct: true,
+				filter: function (event, player) {
+					return event.player.group === "shu" && event.player !== player && player.isAlive();
+				},
+				content: async function (event, trigger, player) {
+					var target = trigger.player;
+
+					// 获取该角色可转移的技能（排除限定技和隐匿技）
+					var skills = target.getStockSkills(true, true).filter(function (skill) {
+						var info = lib.skill[skill];
+						if (!info) return false;
+						if (info.limited) return false;
+						if (info.charlotte) return false;
+						return true;
+					});
+
+					if (!skills.length) return;
+
+					// 让阵亡角色选择
+					var result = await target
+						.chooseControl()
+						.set(
+							"choiceList",
+							skills.map(function (s) {
+								return "【" + get.translation(s) + "】";
+							}),
+						)
+						.set("prompt", "选择一个技能令" + get.translation(player) + "获得")
+						.set("ai", function () {
+							var att = get.attitude(target, player);
+
+							if (att > 0) {
+								for (var i = 0; i < skills.length; i++) {
+									if (lib.skill[skills[i]] && lib.skill[skills[i]].enable) return i;
+								}
+								for (var i = 0; i < skills.length; i++) {
+									if (lib.skill[skills[i]] && lib.skill[skills[i]].trigger) return i;
+								}
+								return 0;
+							}
+
+							var badSkills = [];
+							for (var i = 0; i < skills.length; i++) {
+								var info = lib.skill[skills[i]];
+								if (!info || (!info.enable && !info.trigger)) {
+									badSkills.push(i);
+								}
+							}
+							if (badSkills.length) return badSkills[0];
+
+							return skills.length - 1;
+						})
+						.forResult();
+
+					if (result.index !== undefined && result.index < skills.length) {
+						var chosenSkill = skills[result.index];
+						if (!player.storage.poqun_chengyi_skills) {
+							player.storage.poqun_chengyi_skills = [];
+						}
+						if (!player.storage.poqun_chengyi_skills.includes(chosenSkill)) {
+							player.storage.poqun_chengyi_skills.push(chosenSkill);
+						}
+						player.markSkill("poqun_chengyi");
+						game.log(target, "将【" + get.translation(chosenSkill) + "】交给", player);
+					}
+				},
+				sub: true,
+				sourceSkill: "poqun_chengyi",
+			},
+			// 准备阶段选择一个承遗技能激活
+			activate: {
+				skill_id: "poqun_chengyi_activate",
+				trigger: { player: "phaseZhunbei" },
+				forced: false,
+				direct: true,
+				filter: function (event, player) {
+					return (
+						player.storage.poqun_chengyi_skills && player.storage.poqun_chengyi_skills.length > 0
+					);
+				},
+				content: async function (event, trigger, player) {
+					var skills = player.storage.poqun_chengyi_skills;
+
+					var choiceList = skills.map(function (s) {
+						return "使用【" + get.translation(s) + "】";
+					});
+					choiceList.push("取消");
+
+					var result = await player
+						.chooseControl()
+						.set("choiceList", choiceList)
+						.set("prompt", "【承遗】选择一个技能于本回合使用")
+						.set("ai", function () {
+							for (var i = 0; i < skills.length; i++) {
+								if (lib.skill[skills[i]] && lib.skill[skills[i]].enable) return i;
+							}
+							return choiceList.length - 1;
+						})
+						.forResult();
+
+					if (result.index >= skills.length) return;
+
+					var chosenSkill = skills[result.index];
+					player.addTempSkill(chosenSkill, { player: "phaseAfter" });
+					player.logSkill("poqun_jicheng_activate");
+					game.log(player, "本回合获得技能【" + get.translation(chosenSkill) + "】");
+				},
+				sub: true,
+				sourceSkill: "poqun_chengyi",
 			},
 		},
 	},

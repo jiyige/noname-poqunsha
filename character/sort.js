@@ -7,6 +7,7 @@ const characterSort = {
 		"poqun_gule",
 		// 蜀
 		"poqun_xiaokong",
+		"poqun_yikun",
 		"poqun_dadi",
 		"poqun_maolaoshi",
 		// 吴
