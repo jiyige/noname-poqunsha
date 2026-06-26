@@ -60,9 +60,9 @@ const translates = {
 	poqun_fugui: "复归",
 	poqun_fugui_info:
 		"当你受到伤害时，若你的武将牌正面向上，你可以翻面防止此伤害。若如此做，你不能成为延时类锦囊牌的目标直到你的武将牌翻回正面。",
-	poqun_lingfeng: "飒风",
+	poqun_lingfeng: "凌风",
 	poqun_lingfeng_info:
-		"当你因翻面跳过回合后，你可以摸两张牌并额外进行一个出牌阶段，此阶段使用的【杀】无距离限制且不可被闪避。",
+		"当你因翻面跳过回合后，你可以摸1张牌并额外进行一个出牌阶段，此阶段使用的【杀】无距离限制且不可被闪避。",
 
 	poqun_maolaoshi: "毛老师",
 	poqun_zhiwei: "知味",

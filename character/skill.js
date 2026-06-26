@@ -1242,8 +1242,8 @@ const skills = {
 			return player.isTurnedOver();
 		},
 		content: async function (event, trigger, player) {
-			// 摸两张牌
-			await player.draw(2);
+			// 摸1张牌
+			await player.draw();
 
 			// 额外回合
 			player.addSkill("safeng_sha_bonus");
