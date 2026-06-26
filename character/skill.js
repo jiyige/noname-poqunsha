@@ -1246,9 +1246,9 @@ const skills = {
 			await player.draw();
 
 			// 额外回合
-			player.addSkill("safeng_sha_bonus");
+			player.addSkill("poqun_lingfeng_sha_bonus");
 			await player.phaseUse();
-			player.removeSkill("safeng_sha_bonus");
+			player.removeSkill("poqun_lingfeng_sha_bonus");
 		},
 		subSkill: {
 			sha_bonus: {

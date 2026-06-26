@@ -66,7 +66,7 @@ const characters = {
 	},
 	poqun_fengjie: {
 		sex: "male",
-		group: "qun",
+		group: "wei",
 		hp: 4,
 		maxHp: 4,
 		hujia: 0,
