@@ -267,275 +267,223 @@ const skills = {
 	},
 	poqun_leshi: {
 		skill_id: "poqun_leshi",
-		group: ["poqun_leshi_grant"],
+		group: ["poqun_leshi_grant", "poqun_leshi_die"],
 		subSkill: {
+			// 出牌阶段开始时，你让对方看你手牌选一张
 			grant: {
 				skill_id: "poqun_leshi_grant",
 				trigger: { global: "phaseUseBegin" },
 				forced: false,
 				direct: true,
-				popup: false,
 				filter: function (event, player) {
-					return event.player != player && player.isAlive();
+					return event.player !== player && player.isAlive() && player.countCards("h") > 0;
 				},
 				content: async function (event, trigger, player) {
-					trigger.player.addTempSkill("poqun_leshi_request", { player: "phaseAfter" });
-					trigger.player.addTempSkill("poqun_leshi_dtrack", { player: "phaseAfter" });
-					trigger.player.addTempSkill("poqun_leshi_rtrack", { player: "phaseAfter" });
-					trigger.player.addTempSkill("poqun_leshi_settle", { player: "phaseAfter" });
+					var target = trigger.player;
 
-					// 初始化 storage
-					trigger.player.storage.poqun_leshi_xiaoch = null;
-					trigger.player.storage.poqun_leshi_dealt = false;
-					trigger.player.storage.poqun_leshi_recovered = false;
+					var confirm = await player
+						.chooseBool("是否让" + get.translation(target) + "观看你的手牌并选择一张？")
+						.set("ai", function () {
+							return true;
+							if (get.attitude(player, target) <= 0) return false;
+							if (player.countCards("h") <= 2) return false;
+							var hasUseful = player.countCards("h", function (card) {
+								var name = card.name;
+								if (name === "sha" && target.getCardUsable("sha") > 0) return true;
+								if (name === "tao" && target.isDamaged()) return true;
+								if (name === "jiu") return true;
+								if (get.type(card) === "trick") return true;
+								return false;
+							});
+							return hasUseful > 0;
+						})
+						.forResult();
+
+					if (!confirm.bool) return;
+
+					player.logSkill("poqun_leshi_grant");
+
+					var result = await target
+						.choosePlayerCard(
+							player,
+							true,
+							"【乐施】选择" + get.translation(player) + "的一张手牌",
+							"visible",
+							"h",
+						)
+						.set("ai", function (button) {
+							var card = button.link;
+							var name = card.name;
+							var type = get.type(card);
+							var score = 0;
+
+							if (type === "trick") {
+								score = 8;
+							} else if (name === "sha" && target.getCardUsable("sha") > 0) {
+								var hasEnemy = game.hasPlayer(function (t) {
+									return t !== target && target.inRange(t) && get.attitude(target, t) < 0;
+								});
+								score = hasEnemy ? 7 : 2;
+							} else if (name === "tao" && target.isDamaged()) {
+								score = target.hp <= 1 ? 9 : 5;
+							} else if (name === "jiu") {
+								var hasEnemy = game.hasPlayer(function (t) {
+									return t !== target && target.inRange(t) && get.attitude(target, t) < 0;
+								});
+								score = hasEnemy && target.hp >= 2 ? 6 : 1;
+							} else if (name === "shan") {
+								score = 1;
+							} else if (type === "equip") {
+								var subtype = get.subtype(card);
+								if (subtype === "equip2") score = !target.getEquip(2) ? 7 : 3;
+								else if (subtype === "equip1") score = !target.getEquip(1) ? 6 : 3;
+								else if (subtype === "equip3") score = !target.getEquip(3) ? 5 : 2;
+								else if (subtype === "equip4") score = !target.getEquip(4) ? 4 : 2;
+								else score = 3;
+							} else {
+								score = get.value(card) * 0.3;
+							}
+
+							if (target.countCards("h", { name: name }) > 0) score *= 0.5;
+							return score;
+						})
+						.forResult();
+
+					if (!result.bool || !result.links) return;
+
+					var chosenCard = result.links[0];
+
+					// 给真牌加标记
+					chosenCard.addGaintag("poqun_leshi_tag");
+
+					target.storage.poqun_leshi_card = chosenCard;
+					target.storage.poqun_leshi_owner = player;
+					target.storage.poqun_leshi_used = false;
+					target.storage.poqun_leshi_dealt = false;
+					target.storage.poqun_leshi_recovered = false;
+
+					target.addTempSkill("poqun_leshi_use", { player: "phaseAfter" });
+					target.addTempSkill("poqun_leshi_watch", { player: "phaseAfter" });
+					target.addTempSkill("poqun_leshi_dtrack", { player: "phaseAfter" });
+					target.addTempSkill("poqun_leshi_rtrack", { player: "phaseAfter" });
+					target.addTempSkill("poqun_leshi_settle", { player: "phaseAfter" });
+
+					game.log(player, "让", target, "观看手牌并选择了一张牌");
 				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
 			},
-			request: {
-				skill_id: "poqun_leshi_request",
+
+			// 监控真牌：被用掉或被拿走时取消乐施
+			watch: {
+				skill_id: "poqun_leshi_watch",
+				charlotte: true,
+				trigger: { global: ["loseAfter", "useCardAfter"] },
+				forced: true,
+				popup: false,
+				silent: true,
+				filter: function (event, player) {
+					var card = player.storage.poqun_leshi_card;
+					var owner = player.storage.poqun_leshi_owner;
+					if (!card || !owner || owner.isDead()) return false;
+					return !owner.getCards("h").includes(card);
+				},
+				content: function (event, trigger, player) {
+					var card = player.storage.poqun_leshi_card;
+					if (card) card.removeGaintag("poqun_leshi_tag");
+					player.storage.poqun_leshi_card = null;
+					game.log("【乐施】所选牌已离开手牌，无法使用");
+				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
+			},
+
+			// 对方点按钮使用
+			use: {
+				skill_id: "poqun_leshi_use",
+				charlotte: true,
 				enable: "phaseUse",
-				usable: 1,
+				selectCard: 0,
 				filterCard: function () {
 					return false;
 				},
-				selectCard: 0,
+				usable: 1,
+				group: ["poqun_leshi_cleanup"],
 				filter: function (event, player) {
-					var xiaoch = game.findPlayer(function (p) {
-						return p.hasSkill("poqun_leshi");
-					});
-					if (!xiaoch || !xiaoch.isAlive()) return false;
-					var canUseSha =
-						player.getCardUsable("sha") > 0 &&
-						game.hasPlayer(function (t) {
-							return t != player && player.inRange(t);
-						});
-					var canUseTao = player.isDamaged();
-					return canUseSha || canUseTao;
-				},
-				content: async function (event) {
-					var player = event.player;
-					var xiaoch = game.findPlayer(function (p) {
-						return p.hasSkill("poqun_leshi");
-					});
-					if (!xiaoch || xiaoch.isDead()) return;
-
-					var canUseSha =
-						player.getCardUsable("sha") > 0 &&
-						game.hasPlayer(function (t) {
-							return t != player && player.inRange(t);
-						});
-					var canUseTao = player.isDamaged();
-
-					var list = [
-						["基本", "", "sha"],
-						["基本", "", "shan"],
-						["基本", "", "tao"],
-						["基本", "", "jiu"],
-					];
-
-					// 请求者选牌型
-					var buttonResult = await player
-						.chooseButton(["【乐施】选择要使用的基本牌", [list, "vcard"]])
-						.set("filterButton", function (button) {
-							var name = button.link[2];
-							if (name == "shan") return false;
-							if (name == "sha") return canUseSha;
-							if (name == "tao") return canUseTao;
-							return true;
-						})
-						.set("ai", function (button) {
-							var name = button.link[2];
-							var att = get.attitude(player, xiaoch);
-							// 对小澈态度差，不会主动求帮忙
-							if (att < 0) return -1;
-
-							var hasGoodTarget = game.hasPlayer(function (t) {
-								return t != player && player.inRange(t) && get.attitude(player, t) < 0;
-							});
-
-							// 优先级：濒死求桃 > 有好目标求杀 > 求酒蓄爆
-							if (name == "tao") {
-								if (player.hp <= 1) return 15;
-								if (player.hp == player.maxHp) return 0;
-								return 8;
-							}
-							if (name == "sha") {
-								if (!hasGoodTarget) return 0;
-								return 10;
-							}
-							if (name == "jiu") {
-								if (hasGoodTarget && player.hp >= 2) return 5;
-								return 1;
-							}
-							return 0;
-						})
-						.forResult();
-
-					if (!buttonResult.bool || !buttonResult.links) return;
-					var selectedName = buttonResult.links[0][2];
-					await player.addSkill("poqun_leshi_limit");
-					game.log(player, "发动了【乐施】，请求使用【", selectedName, "】");
-
-					var target = player;
-					if (selectedName == "sha") {
-						var targetResult = await player
-							.chooseTarget("选择【杀】的目标", function (card, player, t) {
-								return t != player && player.inRange(t);
-							})
-							.set("ai", function (t) {
-								return get.effect(t, { name: "sha" }, player, player);
-							})
-							.forResult();
-						if (!targetResult.bool || !targetResult.targets) return;
-						target = targetResult.targets[0];
-						game.log(player, "选择了", target, "作为【杀】的目标");
-					}
-
-					// 小澈没该牌 → 显示原因 + 确认按钮
-					if (
-						!xiaoch.countCards("h", function (card) {
-							return card.name == selectedName;
-						})
-					) {
-						await xiaoch
-							.chooseButton([
-								"提示",
-								[["您没有" + get.translation(selectedName) + "所需要的基本牌"], "tdnodes"],
-							])
-							.set("ai", function () {
-								return true;
-							});
-						xiaoch.popup("拒绝");
-						game.log(xiaoch, "拒绝了【乐施】请求");
-						return;
-					}
-
-					// 小澈选牌或拒绝
-					var cardResult = await xiaoch
-						.chooseCard(
-							"h",
-							function (card) {
-								return card.name == selectedName;
-							},
-							"【乐施】是否代" +
-								get.translation(player) +
-								"使用【" +
-								+get.translation(selectedName) +
-								"】（选择一张牌同意，点取消拒绝）",
-						)
-						.set("ai", function (card) {
-							var att = get.attitude(xiaoch, player);
-							if (att <= 0) return -1;
-							if (xiaoch.countCards("h") <= 2) return -1;
-
-							var handCount = xiaoch.countCards("h", function (c) {
-								return c.name == selectedName;
-							});
-
-							if (selectedName == "tao") {
-								if (player.hp <= 1 && handCount > 1) return 10;
-								if (player.hp <= 1 && xiaoch.countCards("h") >= 4) return 10;
-								if (handCount >= 2) return 5;
-								return -1;
-							}
-							if (selectedName == "sha") {
-								if (target && get.attitude(xiaoch, target) < 0 && handCount >= 1) return 5;
-								return -1;
-							}
-							if (selectedName == "jiu") {
-								return handCount >= 2 ? 5 : -1;
-							}
-							return -1;
-						})
-						.forResult();
-
-					if (!cardResult.bool || !cardResult.cards) {
-						xiaoch.popup("拒绝");
-						game.log(xiaoch, "拒绝了【乐施】请求");
-						return;
-					}
-
-					player.storage.poqun_leshi_xiaoch = xiaoch;
-					await player.addSkill("poqun_leshi_settle");
-
-					var givenCard = cardResult.cards[0];
-					await xiaoch.give(givenCard, player);
-					await player.useCard(givenCard, target);
-				},
-				ai: {
-					order: 2,
-					result: {
-						player: function (player) {
-							var xiaoch = game.findPlayer(function (p) {
-								return p.hasSkill("poqun_leshi");
-							});
-							if (!xiaoch || !xiaoch.isAlive()) return -2;
-							if (get.attitude(player, xiaoch) <= 0) return -2;
-
-							var xiaochHand = xiaoch.countCards("h"); // 总手牌数，公开信息
-							if (xiaochHand <= 2) return -2; // 牌太少，大概率拒绝
-
-							var hasGoodTarget = game.hasPlayer(function (t) {
-								return t != player && player.inRange(t) && get.attitude(player, t) < 0;
-							});
-
-							// 用公开手牌数估算小澈有多余牌的概率
-							// 牌越多，越可能有富余的基本牌愿意给
-							var generous = xiaochHand >= 5;
-
-							// === 求杀 ===
-							if (hasGoodTarget && !player.countCards("h", { name: "sha" })) {
-								// 杀牌较常见，手牌多时小澈大概率有
-								return generous ? 3 : xiaochHand >= 4 ? 2 : -2;
-							}
-
-							// === 求酒 ===
-							if (hasGoodTarget && player.countCards("h", { name: "sha" })) {
-								// 酒牌稀少，需要小澈牌很多才值得请求
-								if (xiaochHand >= 6) return 1.5;
-								return -2;
-							}
-
-							// === 非濒死回血 ===
-							if (player.isDamaged()) {
-								// 桃很珍贵，小澈牌非常充裕时才值得
-								if (xiaochHand >= 6) return 0.5;
-								return -2;
-							}
-
-							return -2;
-						},
-					},
-				},
-			},
-			settle: {
-				skill_id: "poqun_leshi_settle",
-				charlotte: true,
-				trigger: { player: "phaseUseEnd" },
-				forced: true,
-				popup: false,
-				filter: function (event, player) {
-					return player.storage.poqun_leshi_xiaoch && player.storage.poqun_leshi_xiaoch.isAlive();
+					var card = player.storage.poqun_leshi_card;
+					var owner = player.storage.poqun_leshi_owner;
+					if (!card || !owner || owner.isDead()) return false;
+					if (player.storage.poqun_leshi_used) return false;
+					return owner.getCards("h").includes(card);
 				},
 				content: async function (event, trigger, player) {
-					var xiaoch = player.storage.poqun_leshi_xiaoch;
-					if (player.storage.poqun_leshi_dealt) {
-						await xiaoch.draw();
-						game.log("【乐施】", player, "于此阶段造成伤害，", xiaoch, "摸一张牌");
+					var card = player.storage.poqun_leshi_card;
+					var owner = player.storage.poqun_leshi_owner;
+
+					// 先拿牌
+					// await owner.give(card, player);
+
+					// 使用
+					await player.chooseUseTarget(card, false, false);
+
+					// 检查牌是否还在手里
+					if (player.getCards("h").includes(card)) {
+						// 没用掉，还回去，标记保留（还能再试）
+						// await player.give(card, owner);
+						card.addGaintag("poqun_leshi_tag");
+						game.log(player, "未使用此牌，归还给", owner);
+						return;
 					}
-					if (player.storage.poqun_leshi_recovered && player.getEquip(2) !== null) {
-						game.log("【乐施】", player, "于此阶段回复体力，", xiaoch, "获得", player, "的防具");
-						var card = player.getEquip(2);
-						if (xiaoch.getEquip(2)) {
-							await xiaoch.discard(xiaoch.getEquip(2));
-						}
-						player.$give(card, xiaoch);
-						await xiaoch.equip(card);
-					}
-					player.storage.poqun_leshi_xiaoch = null;
+
+					// 用掉了
+					card.removeGaintag("poqun_leshi_tag");
+					player.addTempSkill("poqun_leshi_limit", { player: "phaseAfter" });
+					player.storage.poqun_leshi_used = true;
+					game.log("【乐施】", player, "使用了此牌，手牌上限-1");
+				},
+				ai: {
+					order: 8,
+					result: { player: 1 },
+				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
+			},
+
+			cleanup: {
+				skill_id: "poqun_leshi_cleanup",
+				charlotte: true,
+				trigger: { player: "phaseAfter" },
+				forced: true,
+				popup: false,
+				silent: true,
+				content: function (event, trigger, player) {
+					var card = player.storage.poqun_leshi_card;
+					if (card) card.removeGaintag("poqun_leshi_tag");
+
+					player.storage.poqun_leshi_card = null;
+					player.storage.poqun_leshi_owner = null;
+					player.storage.poqun_leshi_used = false;
 					player.storage.poqun_leshi_dealt = false;
 					player.storage.poqun_leshi_recovered = false;
 				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
 			},
+
+			// 手牌上限-1
+			limit: {
+				skill_id: "poqun_leshi_limit",
+				charlotte: true,
+				mod: {
+					maxHandcard: function (player, num) {
+						return num - 1;
+					},
+				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
+			},
+
+			// 造成伤害追踪
 			dtrack: {
 				skill_id: "poqun_leshi_dtrack",
 				charlotte: true,
@@ -543,10 +491,17 @@ const skills = {
 				forced: true,
 				popup: false,
 				silent: true,
-				content: async function (event, trigger, player) {
+				filter: function (event, player) {
+					return _status.currentPhase === player;
+				},
+				content: function (event, trigger, player) {
 					player.storage.poqun_leshi_dealt = true;
 				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
 			},
+
+			// 回复体力追踪
 			rtrack: {
 				skill_id: "poqun_leshi_rtrack",
 				charlotte: true,
@@ -554,19 +509,98 @@ const skills = {
 				forced: true,
 				popup: false,
 				silent: true,
-				content: async function (event, trigger, player) {
+				content: function (event, trigger, player) {
 					player.storage.poqun_leshi_recovered = true;
 				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
 			},
-			limit: {
-				skill_id: "poqun_leshi_limit",
+
+			// 出牌阶段结束时结算（小澈决定是否摸牌）
+			settle: {
+				skill_id: "poqun_leshi_settle",
 				charlotte: true,
-				mod: {
-					maxHandcard: function (player, num) {
-						game.log("【乐施】", player, "手牌上限-1");
-						return num - 1;
-					},
+				trigger: { player: "phaseUseEnd" },
+				forced: true,
+				popup: false,
+				filter: function (event, player) {
+					return (
+						player.storage.poqun_leshi_used &&
+						player.storage.poqun_leshi_owner &&
+						player.storage.poqun_leshi_owner.isAlive()
+					);
 				},
+				content: async function (event, trigger, player) {
+					var owner = player.storage.poqun_leshi_owner;
+
+					if (player.storage.poqun_leshi_recovered) {
+						var rResult = await owner
+							.chooseBool("【乐施】" + get.translation(player) + "于此阶段回复体力，是否摸一张牌？")
+							.set("ai", function () {
+								return true;
+							})
+							.forResult();
+						if (rResult.bool) {
+							await owner.draw();
+							game.log("【乐施】", owner, "摸了一张牌（", player, "回复体力）");
+						}
+					}
+					if (player.storage.poqun_leshi_dealt) {
+						var dResult = await owner
+							.chooseBool("【乐施】" + get.translation(player) + "于此阶段造成伤害，是否摸一张牌？")
+							.set("ai", function () {
+								return true;
+							})
+							.forResult();
+						if (dResult.bool) {
+							await owner.draw();
+							game.log("【乐施】", owner, "摸了一张牌（", player, "造成伤害）");
+						}
+					}
+
+					// 清理标记
+					var card = player.storage.poqun_leshi_card;
+					if (card) card.removeGaintag("poqun_leshi_tag");
+
+					// 清理
+					player.storage.poqun_leshi_card = null;
+					player.storage.poqun_leshi_owner = null;
+					player.storage.poqun_leshi_used = false;
+					player.storage.poqun_leshi_dealt = false;
+					player.storage.poqun_leshi_recovered = false;
+				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
+			},
+
+			// 技能主人死亡时清理
+			die: {
+				skill_id: "poqun_leshi_die",
+				trigger: { player: "die" },
+				forced: true,
+				popup: false,
+				silent: true,
+				content: function (event, trigger, player) {
+					game.filterPlayer(function (current) {
+						if (current.storage.poqun_leshi_owner === player) {
+							var card = current.storage.poqun_leshi_card;
+							if (card) card.removeGaintag("poqun_leshi_tag");
+							current.removeSkill("poqun_leshi_use");
+							current.removeSkill("poqun_leshi_watch");
+							current.removeSkill("poqun_leshi_limit");
+							current.removeSkill("poqun_leshi_dtrack");
+							current.removeSkill("poqun_leshi_rtrack");
+							current.removeSkill("poqun_leshi_settle");
+							current.storage.poqun_leshi_card = null;
+							current.storage.poqun_leshi_owner = null;
+							current.storage.poqun_leshi_used = false;
+							current.storage.poqun_leshi_dealt = false;
+							current.storage.poqun_leshi_recovered = false;
+						}
+					});
+				},
+				sub: true,
+				sourceSkill: "poqun_leshi",
 			},
 		},
 	},
