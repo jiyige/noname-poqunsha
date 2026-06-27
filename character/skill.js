@@ -8,17 +8,19 @@ const skills = {
 				mark: true,
 				marktext: "询",
 				intro: {
-					content: "回合开始时须选择一项：1.跳过摸牌，杀伤害+1；2.跳过出牌，回复体力",
+					content:
+						"回合开始时须选择一项：1.跳过判定和摸牌，令施加者摸1牌；2.跳过出牌和弃牌，令施加者执行出牌阶段",
 				},
 				trigger: { player: "phaseBegin" },
 				forced: true,
 				content: async function (event, trigger, player) {
+					var rixunOwner = player.storage.poqun_rixun_owner;
 					player.removeSkill("poqun_rixun_mark");
 
 					var result = await player
 						.chooseControlList([
-							"跳过摸牌阶段，本回合使用【杀】伤害+1",
-							"跳过出牌阶段，回复1点体力",
+							"跳过判定和摸牌阶段，令" + get.translation(rixunOwner) + "摸1张牌",
+							"跳过出牌和弃牌阶段，令" + get.translation(rixunOwner) + "执行1个出牌阶段",
 						])
 						.set("forced", true)
 						.set("ai", function () {
@@ -26,56 +28,64 @@ const skills = {
 							var hasLebu = false;
 							var hasBingliang = false;
 							for (var i = 0; i < judges.length; i++) {
-								if (judges[i].name == "lebu") hasLebu = true;
-								if (judges[i].name == "bingliang") hasBingliang = true;
+								if (judges[i].name === "lebu") hasLebu = true;
+								if (judges[i].name === "bingliang") hasBingliang = true;
 							}
-							// 有乐不思蜀 → 选回血（乐跳了出牌阶段也是白回血）
-							if (hasLebu) return 1;
-							// 有兵粮寸断 → 选杀+1（兵跳了摸牌阶段，选1等于白赚）
-							if (hasBingliang) return 0;
-							// 有杀且有可攻击敌人 → 选杀+1
+							var att = get.attitude(player, rixunOwner);
+
+							// 队友：帮队友收益
+							if (att > 0) {
+								// 有兵粮寸断 → 选1（跳过判定摸牌，队友摸牌）
+								if (hasBingliang) return 0;
+								// 有乐不思蜀 → 选2（跳过出牌弃牌，队友出牌阶段，反正自己被乐也出不了）
+								if (hasLebu) return 1;
+								// 队友出牌比摸1牌更有价值
+								return 1;
+							}
+
+							// 敌人：选对自己损失小的
+							// 有兵粮寸断 → 选1（跳过判定摸牌，但兵也会跳摸牌，等于白送摸牌）
+							if (hasBingliang) return 1;
+							// 有乐不思蜀 → 选2（跳过出牌弃牌，反正被乐也出不了）
+							if (hasLebu) return 0;
+							// 有杀有敌人 → 选1保留出牌能力
 							if (player.countCards("h", { name: "sha" }) > 0) {
 								var enemies = game.filterPlayer(function (current) {
 									return (
-										current != player &&
+										current !== player &&
 										get.attitude(player, current) < 0 &&
 										player.inRange(current)
 									);
 								});
 								if (enemies.length > 0) return 0;
 							}
-							// 残血 → 选回血
-							if (player.hp < player.maxHp) return 1;
-							// 默认 → 选杀+1
+							// 默认选2（跳过出牌弃牌，但让敌人多一个出牌阶段更亏）
 							return 0;
 						})
 						.forResult();
+
 					game.log(
 						"【日询】",
 						player,
 						"选择了选项：",
-						result.index == 0 ? "跳过摸牌，杀伤害+1" : "跳过出牌，回复体力",
+						result.index === 0
+							? "跳过判定和摸牌，令" + get.translation(rixunOwner) + "摸1牌"
+							: "跳过出牌和弃牌，令" + get.translation(rixunOwner) + "执行出牌阶段",
 					);
-					if (result.index == 0) {
+
+					if (result.index === 0) {
+						player.skip("phaseJudge");
 						player.skip("phaseDraw");
-						player.addTempSkill("poqun_rixun_sha_bonus", { player: "phaseAfter" });
+						await rixunOwner.draw();
+						game.log(rixunOwner, "摸了一张牌");
 					} else {
 						player.skip("phaseUse");
-						await player.recover();
+						player.skip("phaseDiscard");
+						await rixunOwner.phaseUse();
+						game.log(rixunOwner, "执行了一个出牌阶段");
 					}
-				},
-				sub: true,
-				sourceSkill: "poqun_rixun",
-			},
-			sha_bonus: {
-				skill_id: "poqun_rixun_sha_bonus",
-				trigger: { source: "damageBegin" },
-				forced: true,
-				filter: function (event, player) {
-					return event.card && event.card.name == "sha";
-				},
-				content: function () {
-					trigger.num++;
+
+					player.storage.poqun_rixun_owner = null;
 				},
 				sub: true,
 				sourceSkill: "poqun_rixun",
@@ -89,12 +99,13 @@ const skills = {
 		position: "h",
 		selectCard: 1,
 		filterTarget: function (card, player, target) {
-			return target != player;
+			return target !== player;
 		},
 		content: async function (event, trigger, player) {
 			var target = event.target;
 			game.log("【日询】", player, "将", event.cards, "交给", target);
 			await player.give(event.cards, target);
+			target.storage.poqun_rixun_owner = player;
 			target.addSkill("poqun_rixun_mark");
 		},
 		ai: {
@@ -106,53 +117,25 @@ const skills = {
 					var hasLebu = false;
 					var hasBingliang = false;
 					for (var i = 0; i < judges.length; i++) {
-						if (judges[i].name == "lebu") hasLebu = true;
-						if (judges[i].name == "bingliang") hasBingliang = true;
+						if (judges[i].name === "lebu") hasLebu = true;
+						if (judges[i].name === "bingliang") hasBingliang = true;
 					}
 					if (att > 0) {
-						// 队友：手牌充足才给
 						var score = player.countCards("h") > 2 ? 1 : -1;
-						// 队友被乐 → 给他标记能白赚回血，加分
-						if (hasLebu) score += 1.5;
-						// 队友被兵 → 给他标记会选杀+1，但手牌少发挥有限，略减
-						if (hasBingliang) score -= 0.5;
+						if (hasLebu) score += 1;
+						if (hasBingliang) score += 1;
 						return score;
 					} else {
-						// 敌人被乐 → 对方必选回血 = 白送牌帮回血，绝对不给
-						if (hasLebu) return -5;
-						// 敌人被兵 → 对方会选杀+1但手牌少，微亏
+						if (hasLebu) return -2;
 						if (hasBingliang) return -1;
-						// 敌人满血 → 两个选项都亏阶段，可以给
 						if (target.hp >= target.maxHp) return 0.5;
-						// 敌人残血 → 选回血，白送牌
-						return -3;
+						return -2;
 					}
 				},
 				target: function (player, target) {
 					var att = get.attitude(player, target);
-					var judges = target.getCards("j");
-					var hasLebu = false;
-					var hasBingliang = false;
-					for (var i = 0; i < judges.length; i++) {
-						if (judges[i].name == "lebu") hasLebu = true;
-						if (judges[i].name == "bingliang") hasBingliang = true;
-					}
-					if (att > 0) {
-						// 队友拿到牌 + 增益选项
-						var score = 2;
-						if (hasLebu) score += 1;
-						if (hasBingliang) score -= 1;
-						return score;
-					} else {
-						// 敌人被乐 → 保底回血，白拿牌
-						if (hasLebu) return 4;
-						// 敌人被兵 → 选杀+1但手牌少，收益有限
-						if (hasBingliang) return 1;
-						// 满血敌人：两个选项都亏阶段
-						if (target.hp >= target.maxHp) return -1;
-						// 残血敌人：白拿牌+回血
-						return 3;
-					}
+					if (att > 0) return 2;
+					return -1;
 				},
 			},
 			tag: { gain: 1 },
@@ -237,7 +220,8 @@ const skills = {
 		},
 		forced: false,
 		filter: function (event, player) {
-			return event.card && get.suit(event.card);
+			var suit = event.card && get.suit(event.card);
+			return suit && suit !== "none";
 		},
 		content: function () {
 			var suit = get.suit(trigger.card);
