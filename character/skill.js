@@ -284,7 +284,6 @@ const skills = {
 					var confirm = await player
 						.chooseBool("是否让" + get.translation(target) + "观看你的手牌并选择一张？")
 						.set("ai", function () {
-							return true;
 							if (get.attitude(player, target) <= 0) return false;
 							if (player.countCards("h") <= 2) return false;
 							var hasUseful = player.countCards("h", function (card) {
