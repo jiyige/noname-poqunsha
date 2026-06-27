@@ -1582,6 +1582,7 @@ const skills = {
 	poqun_juyi: {
 		skill_id: "poqun_juyi",
 		enable: "phaseUse",
+		usable: 1,
 		group: ["poqun_juyi_reset"],
 		filter: function (event, player) {
 			var noCard =
