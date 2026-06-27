@@ -821,23 +821,36 @@ const skills = {
 	},
 	poqun_huifeng: {
 		skill_id: "poqun_huifeng",
-		trigger: { global: "useCardToPlayer" },
 		trigger: { player: "damageEnd" },
 		forced: false,
 		direct: true,
+		filter: function (event, player) {
+			return game.hasPlayer(function (current) {
+				return (
+					current !== player &&
+					current.isAlive() &&
+					current.countCards("h") <= player.countCards("h")
+				);
+			});
+		},
 		content: async function (event, trigger, player) {
 			var result = await player
-				.chooseTarget("【回锋】选择一名其他角色", function (card, player, target) {
-					return target !== player && target.isAlive();
+				.chooseTarget("【回锋】选择一名手牌数不大于你的角色", function (card, player, target) {
+					return (
+						target !== player &&
+						target.isAlive() &&
+						target.countCards("h") <= player.countCards("h")
+					);
 				})
 				.set("ai", function (target) {
 					if (get.attitude(player, target) >= 0) return 0;
-					var handCount = target.countCards("h");
-					return handCount * get.damageEffect(target, player, player);
+					return target.countCards("h", { name: "sha" }) * get.damageEffect(target, player, player);
 				})
 				.forResult();
 
 			if (!result.bool) return;
+
+			player.logSkill("poqun_huifeng");
 
 			var target = result.targets[0];
 
@@ -848,17 +861,60 @@ const skills = {
 				game.log(target, "的手牌为", handCards);
 			}
 
-			// 数杀的数量
-			var shaCount = handCards.filter(function (card) {
+			// 检查是否有杀
+			var shaCards = handCards.filter(function (card) {
 				return card.name === "sha";
-			}).length;
+			});
 
-			// 造成伤害
-			if (shaCount > 0) {
-				game.log(player, "对", target, "造成" + shaCount + "点伤害");
-				await target.damage(shaCount, player);
-			} else {
+			if (!shaCards.length) {
 				game.log(target, "手牌中没有【杀】");
+				return;
+			}
+
+			// 选择一项
+			var choiceList = ["对其造成1点伤害"];
+			if (shaCards.length > 0) {
+				choiceList.push("弃置其一张【杀】");
+			}
+
+			var choiceResult = await player
+				.chooseControl()
+				.set("choiceList", choiceList)
+				.set("prompt", "【回锋】选择一项")
+				.set("ai", function () {
+					// 造成伤害 vs 弃一张杀
+					var damageScore = get.damageEffect(target, player, player);
+					// 弃杀价值 = 对方手牌越多越值得弃
+					var discardScore = shaCards.length > 1 ? 3 : 1;
+					// 伤害收益高就打伤害，否则弃杀
+					return damageScore > discardScore ? 0 : 1;
+				})
+				.forResult();
+
+			if (choiceResult.index === 0) {
+				game.log(player, "对", target, "造成1点伤害");
+				await target.damage(1, player);
+			} else {
+				// 弃置一张杀
+				if (shaCards.length === 1) {
+					await target.discard(shaCards[0]);
+					game.log(player, "弃置了", target, "的", shaCards[0]);
+				} else {
+					var discardResult = await player
+						.chooseButton(
+							["【回锋】弃置" + get.translation(target) + "的一张【杀】", shaCards],
+							true,
+						)
+						.set("ai", function (button) {
+							return get.value(button.link);
+						})
+						.forResult();
+
+					if (discardResult.bool && discardResult.links) {
+						await target.discard(discardResult.links[0]);
+						game.log(player, "弃置了", target, "的", discardResult.links[0]);
+					}
+				}
 			}
 		},
 		ai: {
