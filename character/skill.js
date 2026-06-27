@@ -1756,18 +1756,28 @@ const skills = {
 				forced: false,
 				direct: true,
 				filter: function (event, player) {
-					return ui.cardPile && ui.cardPile.childNodes.length >= 2;
+					return ui.cardPile && ui.cardPile.childNodes.length >= 2 && player.countCards("he") > 0;
 				},
 				content: async function (event, trigger, player) {
 					var target = trigger.player;
 
 					// 先问古乐是否发动
 					var result = await player
-						.chooseBool("是否发动【光引】让" + get.translation(target) + "观看牌堆底两张牌？")
-						.set("ai", function () {
-							var att = get.attitude(player, target);
-							if (att <= 0) return false;
-							return true;
+						.chooseCard("he", "是否弃置一张牌发动【光引】？")
+						.set("ai", function (card) {
+							// 队友判定结果不好
+							if (get.attitude(player, target) > 0) {
+								var judge = trigger.judge(trigger.player.judging[0]);
+								if (judge < 0) return 8 - get.value(card);
+								return -1;
+							}
+							// 敌人判定结果好
+							if (get.attitude(player, target) < 0) {
+								var judge = trigger.judge(trigger.player.judging[0]);
+								if (judge > 0) return 8 - get.value(card);
+								return -1;
+							}
+							return -1;
 						})
 						.forResult();
 
