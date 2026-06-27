@@ -804,6 +804,9 @@ const skills = {
 			globalTo: function (from, to, distance) {
 				return distance + 1;
 			},
+			globalFrom: function (from, to, distance) {
+				return distance + 1;
+			},
 		},
 	},
 	poqun_cangfeng: {
