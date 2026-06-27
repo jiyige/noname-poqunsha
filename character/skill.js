@@ -1418,17 +1418,37 @@ const skills = {
 			player.$throw(cards, 1000);
 		},
 		content: async function (event, trigger, player) {
-			var card = event.cards[0];
-
-			// 展示手牌并放到牌堆顶
-			await player.showCards(card, "【运筹】展示");
-			player.loseToDiscardpile(card, ui.cardPile, "visible", "insert").log = false;
-			game.log(player, "将", card, "置于牌堆顶");
-
-			await game.delay(0.3);
-
 			while (true) {
-				// 展示并获得牌堆底的牌
+				var card;
+
+				// 第一轮用 event.cards，后续轮选手牌
+				if (event.cards && event.cards.length && event.cards[0]) {
+					card = event.cards[0];
+					event.cards = [];
+				} else {
+					if (!player.countCards("h")) {
+						game.log(player, "没有手牌，停止");
+						break;
+					}
+					var result = await player
+						.chooseCard("h", "【运筹】是否再展示一张手牌置于牌堆顶？（选牌继续，取消停止）")
+						.set("ai", function (card) {
+							return 4 - get.value(card);
+						})
+						.forResult();
+
+					if (!result.bool || !result.cards) break;
+					card = result.cards[0];
+				}
+
+				// 展示并放到牌堆顶
+				await player.showCards(card, "【运筹】展示");
+				player.loseToDiscardpile(card, ui.cardPile, "visible", "insert").log = false;
+				game.log(player, "将", card, "置于牌堆顶");
+
+				await game.delay(0.3);
+
+				// 获得牌堆底的牌
 				var bottomCard = ui.cardPile.lastChild;
 				if (!bottomCard) break;
 
@@ -1443,30 +1463,6 @@ const skills = {
 
 				game.log(player, "花色相同，摸一张牌并继续");
 				await player.draw();
-
-				// 没手牌了不能继续
-				if (!player.countCards("h")) {
-					game.log(player, "没有手牌，停止");
-					break;
-				}
-
-				// 选一张手牌继续
-				var result = await player
-					.chooseCard("h", "【运筹】是否再展示一张手牌置于牌堆顶？（选牌继续，取消停止）")
-					.set("ai", function (card) {
-						return 4 - get.value(card);
-					})
-					.forResult();
-
-				if (!result.bool || !result.cards) break;
-
-				card = result.cards[0];
-				await player.showCards(card, "【运筹】展示");
-				player.lose(card, ui.special);
-				ui.cardPile.insertBefore(card, ui.cardPile.firstChild);
-				game.log(player, "将", card, "置于牌堆顶");
-
-				await game.delay(0.3);
 			}
 		},
 		ai: {
