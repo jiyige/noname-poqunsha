@@ -8,8 +8,7 @@ const skills = {
 				mark: true,
 				marktext: "询",
 				intro: {
-					content:
-						"回合开始时须选择一项：1.跳过判定和摸牌，令施加者摸1牌；2.跳过出牌和弃牌，令施加者执行出牌阶段",
+					content: "回合开始时须选择一项：1.跳过摸牌，伤害+1；2.跳过出牌，双方各摸1牌",
 				},
 				trigger: { player: "phaseBegin" },
 				forced: true,
@@ -19,8 +18,8 @@ const skills = {
 
 					var result = await player
 						.chooseControlList([
-							"跳过判定和摸牌阶段，令" + get.translation(rixunOwner) + "摸1张牌",
-							"跳过出牌和弃牌阶段，令" + get.translation(rixunOwner) + "执行1个出牌阶段",
+							"跳过摸牌阶段，本回合出牌阶段伤害+1",
+							"跳过出牌阶段，令你与" + get.translation(rixunOwner) + "各摸1张牌",
 						])
 						.set("forced", true)
 						.set("ai", function () {
@@ -33,34 +32,38 @@ const skills = {
 							}
 							var att = get.attitude(player, rixunOwner);
 
-							// 队友：帮队友收益
-							if (att > 0) {
-								// 有兵粮寸断 → 选1（跳过判定摸牌，队友摸牌）
-								if (hasBingliang) return 0;
-								// 有乐不思蜀 → 选2（跳过出牌弃牌，队友出牌阶段，反正自己被乐也出不了）
-								if (hasLebu) return 1;
-								// 队友出牌比摸1牌更有价值
-								return 1;
-							}
+							// 有乐不思蜀 → 选1（反正出不了牌，伤害+1也没用，但选2跳出牌阶段等于白赚摸牌）
+							if (hasLebu) return 1;
+							// 有兵粮寸断 → 选1（跳过摸牌等于白赚伤害+1）
+							if (hasBingliang) return 0;
 
-							// 敌人：选对自己损失小的
-							// 有兵粮寸断 → 选1（跳过判定摸牌，但兵也会跳摸牌，等于白送摸牌）
-							if (hasBingliang) return 1;
-							// 有乐不思蜀 → 选2（跳过出牌弃牌，反正被乐也出不了）
-							if (hasLebu) return 0;
-							// 有杀有敌人 → 选1保留出牌能力
-							if (player.countCards("h", { name: "sha" }) > 0) {
-								var enemies = game.filterPlayer(function (current) {
+							// 是队友
+							if (att > 0) {
+								// 有杀有敌人 → 选1（伤害+1有价值）
+								var hasSha = player.countCards("h", { name: "sha" });
+								var hasEnemy = game.hasPlayer(function (current) {
 									return (
 										current !== player &&
 										get.attitude(player, current) < 0 &&
 										player.inRange(current)
 									);
 								});
-								if (enemies.length > 0) return 0;
+								if (hasSha > 0 && hasEnemy) return 0;
+								//没杀没敌人 → 选2（各摸1牌）
+								return 1;
 							}
-							// 默认选2（跳过出牌弃牌，但让敌人多一个出牌阶段更亏）
-							return 0;
+
+							// 是敌人
+							// 有杀有敌人 → 选1（跳过摸牌但伤害+1，还是亏牌）
+							//没杀 → 选2（各摸1牌）
+							var hasSha = player.countCards("h", { name: "sha" });
+							var hasEnemy = game.hasPlayer(function (current) {
+								return (
+									current !== player && get.attitude(player, current) < 0 && player.inRange(current)
+								);
+							});
+							if (hasSha > 0 && hasEnemy) return 0;
+							return 1;
 						})
 						.forResult();
 
@@ -68,25 +71,42 @@ const skills = {
 						"【日询】",
 						player,
 						"选择了选项：",
-						result.index === 0
-							? "跳过判定和摸牌，令" + get.translation(rixunOwner) + "摸1牌"
-							: "跳过出牌和弃牌，令" + get.translation(rixunOwner) + "执行出牌阶段",
+						result.index === 0 ? "跳过摸牌，伤害+1" : "跳过出牌，各摸1牌",
 					);
 
 					if (result.index === 0) {
-						player.skip("phaseJudge");
 						player.skip("phaseDraw");
-						await rixunOwner.draw();
-						game.log(rixunOwner, "摸了一张牌");
+						player.addTempSkill("poqun_rixun_damage_bonus", { player: "phaseAfter" });
 					} else {
 						player.skip("phaseUse");
-						player.skip("phaseDiscard");
-						await rixunOwner.phaseUse();
-						game.log(rixunOwner, "执行了一个出牌阶段");
+						if (rixunOwner && rixunOwner.isAlive()) {
+							await rixunOwner.draw();
+						}
+						await player.draw();
+						game.log(player, "和", rixunOwner, "各摸一张牌");
 					}
 
 					player.storage.poqun_rixun_owner = null;
 				},
+				sub: true,
+				sourceSkill: "poqun_rixun",
+			},
+			//出牌阶段伤害+1
+			damage_bonus: {
+				skill_id: "poqun_rixun_damage_bonus",
+				charlotte: true,
+				trigger: { source: "damageBegin" },
+				forced: true,
+				filter: function (event, player) {
+					return _status.currentPhase === player;
+				},
+				content: function () {
+					trigger.num++;
+					game.log("【日询】伤害+1");
+				},
+				mark: true,
+				marktext: "询+",
+				intro: { content: "本回合出牌阶段伤害+1" },
 				sub: true,
 				sourceSkill: "poqun_rixun",
 			},
@@ -336,118 +356,22 @@ const skills = {
 
 					var chosenCard = result.links[0];
 
-					// 给真牌加标记
-					chosenCard.addGaintag("poqun_leshi_tag");
+					// 给牌并加标签
+					await player.give(chosenCard, target);
+					target.addGaintag([chosenCard], "poqun_leshi_tag");
 
+					// 记录信息
 					target.storage.poqun_leshi_card = chosenCard;
 					target.storage.poqun_leshi_owner = player;
-					target.storage.poqun_leshi_used = false;
 					target.storage.poqun_leshi_dealt = false;
 					target.storage.poqun_leshi_recovered = false;
 
-					target.addTempSkill("poqun_leshi_use", { player: "phaseAfter" });
-					target.addTempSkill("poqun_leshi_watch", { player: "phaseAfter" });
+					// 加追踪和结算技能
 					target.addTempSkill("poqun_leshi_dtrack", { player: "phaseAfter" });
 					target.addTempSkill("poqun_leshi_rtrack", { player: "phaseAfter" });
 					target.addTempSkill("poqun_leshi_settle", { player: "phaseAfter" });
 
 					game.log(player, "让", target, "观看手牌并选择了一张牌");
-				},
-				sub: true,
-				sourceSkill: "poqun_leshi",
-			},
-
-			// 监控真牌：被用掉或被拿走时取消乐施
-			watch: {
-				skill_id: "poqun_leshi_watch",
-				charlotte: true,
-				trigger: { global: ["loseAfter", "useCardAfter"] },
-				forced: true,
-				popup: false,
-				silent: true,
-				filter: function (event, player) {
-					var card = player.storage.poqun_leshi_card;
-					var owner = player.storage.poqun_leshi_owner;
-					if (!card || !owner || owner.isDead()) return false;
-					return !owner.getCards("h").includes(card);
-				},
-				content: function (event, trigger, player) {
-					var card = player.storage.poqun_leshi_card;
-					if (card) card.removeGaintag("poqun_leshi_tag");
-					player.storage.poqun_leshi_card = null;
-					game.log("【乐施】所选牌已离开手牌，无法使用");
-				},
-				sub: true,
-				sourceSkill: "poqun_leshi",
-			},
-
-			// 对方点按钮使用
-			use: {
-				skill_id: "poqun_leshi_use",
-				charlotte: true,
-				enable: "phaseUse",
-				selectCard: 0,
-				filterCard: function () {
-					return false;
-				},
-				usable: 1,
-				group: ["poqun_leshi_cleanup"],
-				filter: function (event, player) {
-					var card = player.storage.poqun_leshi_card;
-					var owner = player.storage.poqun_leshi_owner;
-					if (!card || !owner || owner.isDead()) return false;
-					if (player.storage.poqun_leshi_used) return false;
-					return owner.getCards("h").includes(card);
-				},
-				content: async function (event, trigger, player) {
-					var card = player.storage.poqun_leshi_card;
-					var owner = player.storage.poqun_leshi_owner;
-
-					// 先拿牌
-					// await owner.give(card, player);
-
-					// 使用
-					await player.chooseUseTarget(card, false, false);
-
-					// 检查牌是否还在手里
-					if (player.getCards("h").includes(card)) {
-						// 没用掉，还回去，标记保留（还能再试）
-						// await player.give(card, owner);
-						card.addGaintag("poqun_leshi_tag");
-						game.log(player, "未使用此牌，归还给", owner);
-						return;
-					}
-
-					// 用掉了
-					card.removeGaintag("poqun_leshi_tag");
-					player.addTempSkill("poqun_leshi_limit", { player: "phaseAfter" });
-					player.storage.poqun_leshi_used = true;
-					game.log("【乐施】", player, "使用了此牌，手牌上限-1");
-				},
-				ai: {
-					order: 8,
-					result: { player: 1 },
-				},
-				sub: true,
-				sourceSkill: "poqun_leshi",
-			},
-
-			cleanup: {
-				skill_id: "poqun_leshi_cleanup",
-				charlotte: true,
-				trigger: { player: "phaseAfter" },
-				forced: true,
-				popup: false,
-				silent: true,
-				content: function (event, trigger, player) {
-					var card = player.storage.poqun_leshi_card;
-					if (card) card.removeGaintag("poqun_leshi_tag");
-
-					player.storage.poqun_leshi_card = null;
-					player.storage.poqun_leshi_owner = null;
-					player.storage.poqun_leshi_used = false;
-					player.storage.poqun_leshi_dealt = false;
-					player.storage.poqun_leshi_recovered = false;
 				},
 				sub: true,
 				sourceSkill: "poqun_leshi",
@@ -499,7 +423,7 @@ const skills = {
 				sourceSkill: "poqun_leshi",
 			},
 
-			// 出牌阶段结束时结算（小澈决定是否摸牌）
+			// 出牌阶段结束时结算
 			settle: {
 				skill_id: "poqun_leshi_settle",
 				charlotte: true,
@@ -508,47 +432,57 @@ const skills = {
 				popup: false,
 				filter: function (event, player) {
 					return (
-						player.storage.poqun_leshi_used &&
+						player.storage.poqun_leshi_card &&
 						player.storage.poqun_leshi_owner &&
 						player.storage.poqun_leshi_owner.isAlive()
 					);
 				},
 				content: async function (event, trigger, player) {
+					var card = player.storage.poqun_leshi_card;
 					var owner = player.storage.poqun_leshi_owner;
 
-					if (player.storage.poqun_leshi_recovered) {
-						var rResult = await owner
-							.chooseBool("【乐施】" + get.translation(player) + "于此阶段回复体力，是否摸一张牌？")
-							.set("ai", function () {
-								return true;
-							})
-							.forResult();
-						if (rResult.bool) {
-							await owner.draw();
-							game.log("【乐施】", owner, "摸了一张牌（", player, "回复体力）");
-						}
-					}
-					if (player.storage.poqun_leshi_dealt) {
-						var dResult = await owner
-							.chooseBool("【乐施】" + get.translation(player) + "于此阶段造成伤害，是否摸一张牌？")
-							.set("ai", function () {
-								return true;
-							})
-							.forResult();
-						if (dResult.bool) {
-							await owner.draw();
-							game.log("【乐施】", owner, "摸了一张牌（", player, "造成伤害）");
-						}
-					}
+					if (!owner.isAlive()) return;
 
-					// 清理标记
-					var card = player.storage.poqun_leshi_card;
-					if (card) card.removeGaintag("poqun_leshi_tag");
+					// 检查牌是否还在手里
+					if (player.getCards("h").includes(card)) {
+						// 没用出去，还回去
+						await player.give(card, owner);
+						game.log(player, "未使用此牌，归还给", owner);
+					} else {
+						// 用了，手牌上限-1
+						player.addTempSkill("poqun_leshi_limit", { player: "phaseAfter" });
+						game.log("【乐施】", player, "使用了此牌，手牌上限-1");
+
+						// 小澈决定是否摸牌
+						if (player.storage.poqun_leshi_recovered) {
+							var rResult = await owner
+								.chooseBool("【乐施】" + get.translation(player) + "回复过体力，是否摸牌？")
+								.set("ai", function () {
+									return true;
+								})
+								.forResult();
+							if (rResult.bool) {
+								await owner.draw();
+								game.log("【乐施】", owner, "摸了一张牌（", player, "回复体力）");
+							}
+						}
+						if (player.storage.poqun_leshi_dealt) {
+							var dResult = await owner
+								.chooseBool("【乐施】" + get.translation(player) + "造成过伤害，是否摸牌？")
+								.set("ai", function () {
+									return true;
+								})
+								.forResult();
+							if (dResult.bool) {
+								await owner.draw();
+								game.log("【乐施】", owner, "摸了一张牌（", player, "造成伤害）");
+							}
+						}
+					}
 
 					// 清理
 					player.storage.poqun_leshi_card = null;
 					player.storage.poqun_leshi_owner = null;
-					player.storage.poqun_leshi_used = false;
 					player.storage.poqun_leshi_dealt = false;
 					player.storage.poqun_leshi_recovered = false;
 				},
@@ -567,16 +501,18 @@ const skills = {
 					game.filterPlayer(function (current) {
 						if (current.storage.poqun_leshi_owner === player) {
 							var card = current.storage.poqun_leshi_card;
-							if (card) card.removeGaintag("poqun_leshi_tag");
-							current.removeSkill("poqun_leshi_use");
-							current.removeSkill("poqun_leshi_watch");
+							if (card) {
+								if (current.getCards("h").includes(card)) {
+									current.discard(card);
+									game.log(current, "弃置了", card, "（", player, "阵亡）");
+								}
+							}
 							current.removeSkill("poqun_leshi_limit");
 							current.removeSkill("poqun_leshi_dtrack");
 							current.removeSkill("poqun_leshi_rtrack");
 							current.removeSkill("poqun_leshi_settle");
 							current.storage.poqun_leshi_card = null;
 							current.storage.poqun_leshi_owner = null;
-							current.storage.poqun_leshi_used = false;
 							current.storage.poqun_leshi_dealt = false;
 							current.storage.poqun_leshi_recovered = false;
 						}
@@ -1114,7 +1050,7 @@ const skills = {
 			// 弃置任意张牌
 			var result = await player
 				.chooseToDiscard("h", "【权断】弃置任意张牌，多摸等量的牌")
-				.set("selectCard", [1, player.countCards("h")])
+				.set("selectCard", [1, Math.min(player.countCards("h"), player.maxHp)])
 				.set("ai", function (card) {
 					return 6 - get.value(card);
 				})
@@ -1822,7 +1758,7 @@ const skills = {
 						.forResult();
 
 					if (!result.bool) return;
-
+					await player.discard(result.cards);
 					player.logSkill("poqun_guangyin_judge");
 
 					var pile = ui.cardPile;
