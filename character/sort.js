@@ -10,6 +10,7 @@ const characterSort = {
 		"poqun_yikun",
 		"poqun_dadi",
 		"poqun_maolaoshi",
+		"poqun_xiwang",
 		// 吴
 		"poqun_shaoye",
 		// 群
@@ -22,6 +23,7 @@ const characterSort = {
 		// 魏
 		// 蜀
 		"poqun_xiaoche",
+		"poqun_xiwang_sp",
 		// 吴
 		// 群
 	],

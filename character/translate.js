@@ -65,6 +65,15 @@ const translates = {
 	poqun_lingfeng_info:
 		"当你因翻面跳过回合后，你可以摸1张牌并额外进行一个出牌阶段，此阶段使用的【杀】无距离限制且不可被闪避。",
 
+	poqun_xiwang: "希望",
+	poqun_xiwang_sp: "SP希望",
+	poqun_qunxin: "群衅",
+	poqun_qunxin_info:
+		"每轮限一次，你造成或受到单目标【杀】或【决斗】的伤害结算后，可选择至多X名其他角色(X为当前体力值)，弃置其一张牌。若如此做，这些角色可依次对你使用一张【杀】，若你因此法受到伤害，【逢春】视为未发动过。",
+	poqun_fengchun: "逢春",
+	poqun_fengchun_info:
+		"限定技，当你进入濒死状态时，你可以弃置所有手牌，并展示牌堆顶两张牌，然后回复至X（X为其中的红牌数量，且至少为1），并获得其他黑色牌。",
+
 	poqun_maolaoshi: "毛老师",
 	poqun_zhiwei: "知味",
 	poqun_zhiwei_info:
@@ -72,9 +81,6 @@ const translates = {
 	poqun_yunchou: "运筹",
 	poqun_yunchou_info:
 		"出牌阶段限一次，你可以将1张手牌展示后置于牌堆顶，然后展示牌堆底的1张牌获得之。若这两张牌的花色相同，你可以摸1张牌并重复此操作。",
-	poqun_fengchun: "逢春",
-	poqun_fengchun_info:
-		"限定技，当你进入濒死状态时，你可以弃置所有手牌，并展示牌堆顶两张牌，然后回复至X（X为其中的红牌数量，且至少为1），并获得其他黑色牌。",
 
 	poqun_xiaokong: "小空",
 	poqun_lanxian: "揽贤",

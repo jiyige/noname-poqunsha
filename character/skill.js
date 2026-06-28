@@ -1443,6 +1443,122 @@ const skills = {
 		},
 		ai: { threaten: 0.5 },
 	},
+	poqun_qunxin: {
+		skill_id: "poqun_qunxin",
+		trigger: { player: "damageEnd", source: "damageEnd" },
+		forced: false,
+		direct: true,
+		filter: function (event, player) {
+			if (player.storage.poqun_qunxin_round === game.roundNumber) return false;
+			if (!event.card) return false;
+			var name = event.card.name;
+			if (name !== "sha" && name !== "juedou") return false;
+			return (
+				player.hp > 0 &&
+				game.hasPlayer(function (current) {
+					return current !== player && current.isAlive() && current.countCards("he") > 0;
+				})
+			);
+		},
+		content: async function (event, trigger, player) {
+			var result = await player
+				.chooseTarget(
+					"【群衅】弃置至多" + player.hp + "名角色各一张牌",
+					[1, player.hp],
+					function (card, player, target) {
+						return target !== player && target.isAlive() && target.countCards("he") > 0;
+					},
+				)
+				.set("ai", function (target) {
+					if (get.attitude(player, target) >= 0) return 0;
+					return get.effect(target, { name: "guohe" }, player, player);
+				})
+				.forResult();
+
+			if (!result.bool) return;
+
+			player.logSkill("poqun_qunxin");
+			player.storage.poqun_qunxin_round = game.roundNumber;
+
+			var targets = result.targets;
+
+			// 开启伤害追踪
+			player.storage.poqun_qunxin_hit = false;
+			player.addSkill("poqun_qunxin_damage_flag");
+
+			// 弃置各目标一张牌
+			for (var i = 0; i < targets.length; i++) {
+				var target = targets[i];
+				if (target.isDead() || !target.countCards("he")) continue;
+				var discardResult = await player
+					.choosePlayerCard(target, "he", true, "弃置" + get.translation(target) + "一张牌")
+					.set("ai", function (button) {
+						return get.value(button.link);
+					})
+					.forResult();
+				if (discardResult.bool && discardResult.links) {
+					await target.discard(discardResult.links);
+				}
+			}
+
+			// 各目标可依次对你使用杀
+			for (var i = 0; i < targets.length; i++) {
+				var target = targets[i];
+				if (target.isDead() || player.isDead()) continue;
+				if (!target.countCards("h", { name: "sha" })) continue;
+
+				var wantUse = await target
+					.chooseBool("是否对" + get.translation(player) + "使用一张【杀】？")
+					.set("ai", function () {
+						if (get.attitude(target, player) >= 0) return false;
+						return true;
+					})
+					.forResult();
+
+				if (!wantUse.bool) continue;
+
+				var shaCards = target.getCards("h", { name: "sha" });
+				if (shaCards.length === 1) {
+					await target.useCard(shaCards[0], player);
+				} else {
+					var chooseResult = await target
+						.chooseCard("选择一张【杀】", true, function (card) {
+							return card.name === "sha";
+						})
+						.forResult();
+					if (chooseResult.bool && chooseResult.cards) {
+						await target.useCard(chooseResult.cards[0], player);
+					}
+				}
+			}
+
+			// 关闭伤害追踪
+			player.removeSkill("poqun_qunxin_damage_flag");
+
+			// 受到伤害则恢复逢春
+			if (player.storage.poqun_qunxin_hit && player.isAlive()) {
+				player.restoreSkill("poqun_fengchun");
+				game.log("【群衅】", player, "的【逢春】视为未发动过");
+			}
+
+			player.storage.poqun_qunxin_hit = false;
+		},
+		subSkill: {
+			damage_flag: {
+				skill_id: "poqun_qunxin_damage_flag",
+				charlotte: true,
+				trigger: { player: "damageEnd" },
+				forced: true,
+				popup: false,
+				silent: true,
+				content: function (event, trigger, player) {
+					player.storage.poqun_qunxin_hit = true;
+				},
+				sub: true,
+				sourceSkill: "poqun_qunxin",
+			},
+		},
+	},
 	poqun_lanxian: {
 		skill_id: "poqun_lanxian",
 		group: ["poqun_lanxian_draw"],
@@ -2479,7 +2595,7 @@ const skills = {
 
 					var chosenSkill = skills[result.index];
 					player.addTempSkill(chosenSkill, { player: "phaseAfter" });
-					player.logSkill("poqun_jicheng_activate");
+					player.logSkill("poqun_chengyi_activate");
 					game.log(player, "本回合获得技能【" + get.translation(chosenSkill) + "】");
 				},
 				sub: true,

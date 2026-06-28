@@ -130,6 +130,26 @@ const characters = {
 		img: "extension/破群杀/image/xujiejie.jpg",
 		isZhugong: true,
 	},
+	poqun_xiwang: {
+		sex: "male",
+		group: "shu",
+		hp: 4,
+		maxHp: 4,
+		hujia: 0,
+		skills: ["tiaoxin", "wangxi"],
+		img: "extension/破群杀/image/xiwang.jpg",
+		isZhugong: true,
+	},
+	poqun_xiwang_sp: {
+		sex: "male",
+		group: "shu",
+		hp: 4,
+		maxHp: 4,
+		hujia: 0,
+		skills: ["poqun_qunxin", "poqun_fengchun"],
+		img: "extension/破群杀/image/xiwang_sp.jpg",
+		isZhugong: true,
+	},
 };
 
 export default characters;
